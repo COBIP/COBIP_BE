@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: cobip
+  profiles:
+    default: local
+  jpa:
+    open-in-view: false
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY:}
+  issuer: ${JWT_ISSUER:cobip}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:1209600000}
+  header: ${JWT_HEADER:Authorization}
+  prefix: ${JWT_PREFIX:Bearer }
+
+cloud:
+  aws:
+    region:
+      static: ${AWS_REGION:}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY:}
+      secret-key: ${AWS_SECRET_KEY:}
+    s3:
+      bucket: ${AWS_S3_BUCKET:}
+
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://localhost:5173
