@@ -5,6 +5,8 @@ import com.cobip.dto.auth.SignupRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -20,13 +22,13 @@ public class UserService {
 
         // 1. 비밀번호 확인
         if (!req.getPassword().equals(req.getConfirmPassword())) {
-            throw new RuntimeException("비밀번호 불일치");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다");
         }
 
         // 2. 이메일 중복 체크
         userRepository.findByEmail(req.getEmail())
                 .ifPresent(u -> {
-                    throw new RuntimeException("이미 존재하는 이메일");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 이메일입니다");
                 });
 
         // 3. 비밀번호 암호화 후 저장
@@ -42,11 +44,13 @@ public class UserService {
 
         // 1. 이메일로 유저 조회
         User user = userRepository.findByEmail(req.getEmail())
-                .orElseThrow(() -> new RuntimeException("유저 없음"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 틀렸습니다")
+                );
 
         // 2. 비밀번호 검증
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-            throw new RuntimeException("비밀번호 틀림");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 틀렸습니다");
         }
 
         return user;
