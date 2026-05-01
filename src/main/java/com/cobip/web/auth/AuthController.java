@@ -2,7 +2,10 @@ package com.cobip.web.auth;
 
 import com.cobip.domain.user.UserService;
 import com.cobip.dto.auth.*;
+import com.cobip.global.common.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,17 +15,15 @@ public class AuthController {
 
     private final UserService userService;
 
-    // 회원가입 API
     @PostMapping("/signup")
-    public AuthResponse signup(@RequestBody SignupRequest req) {
+    public ResponseEntity<ApiResponse<?>> signup(@RequestBody @Valid SignupRequest req) {
         userService.signup(req);
-        return new AuthResponse("회원가입 완료");
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
-    // 로그인 API
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody LoginRequest req) {
+    public ResponseEntity<ApiResponse<?>> login(@RequestBody @Valid LoginRequest req) {
         userService.login(req);
-        return new AuthResponse("로그인 성공");
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
