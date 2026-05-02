@@ -3,10 +3,11 @@ package com.cobip.domain.user;
 import com.cobip.dto.auth.LoginRequest;
 import com.cobip.dto.auth.SignupRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -32,11 +33,15 @@ public class UserService {
                 });
 
         // 3. 비밀번호 암호화 후 저장
-        userRepository.save(User.builder()
-                .email(req.getEmail())
-                .password(passwordEncoder.encode(req.getPassword()))
-                .nickname(req.getNickname())
-                .build());
+        try {
+            userRepository.save(User.builder()
+                    .email(req.getEmail())
+                    .password(passwordEncoder.encode(req.getPassword()))
+                    .nickname(req.getNickname())
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 이메일입니다", e);
+        }
     }
 
     // 로그인
