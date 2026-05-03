@@ -1,11 +1,17 @@
 package com.cobip.dto.auth;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
 public class AuthResponse {
 
-    private String message; // 간단한 응답 메시지
+    private final String accessToken;
+    private final String refreshToken;
+    private final String tokenType;
+
+    public AuthResponse(String accessToken, String refreshToken) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
+        this.tokenType = "Bearer";
+    }
 }
