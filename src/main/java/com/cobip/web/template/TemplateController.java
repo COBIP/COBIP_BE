@@ -1,8 +1,10 @@
 package com.cobip.web.template;
 
+import com.cobip.domain.certificate.CertificateService;
 import com.cobip.domain.template.TemplateDifficulty;
 import com.cobip.domain.template.TemplateService;
 import com.cobip.domain.user.User;
+import com.cobip.dto.mypage.CertificateResponse;
 import com.cobip.dto.template.TemplateCreateRequest;
 import com.cobip.dto.template.TemplateDetailResponse;
 import com.cobip.dto.template.TemplateFileUploadResponse;
@@ -36,6 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class TemplateController {
 
     private final TemplateService templateService;
+    private final CertificateService certificateService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<TemplateSummaryResponse>>> getTemplates(
@@ -115,5 +118,13 @@ public class TemplateController {
     ) {
         templateService.removeFavorite(user, templateId);
         return ResponseEntity.ok(ApiResponse.success("템플릿 찜을 취소했습니다.", null));
+    }
+
+    @PostMapping("/{templateId}/certificates")
+    public ResponseEntity<ApiResponse<CertificateResponse>> issueCertificate(
+        @AuthenticationPrincipal User user,
+        @PathVariable Long templateId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("수료증이 발급되었습니다.", certificateService.issueCertificate(user, templateId)));
     }
 }
