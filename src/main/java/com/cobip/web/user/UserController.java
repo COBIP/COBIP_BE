@@ -6,6 +6,7 @@ import com.cobip.domain.user.User;
 import com.cobip.dto.mypage.ActivityHistoryResponse;
 import com.cobip.dto.mypage.CertificateResponse;
 import com.cobip.dto.mypage.LearningProgressResponse;
+import com.cobip.dto.mypage.MyDashboardResponse;
 import com.cobip.dto.mypage.SubscriptionResponse;
 import com.cobip.dto.template.TemplateSummaryResponse;
 import com.cobip.dto.user.MyProfileResponse;
@@ -92,6 +93,11 @@ public class UserController {
     @GetMapping("/subscription")
     public ResponseEntity<ApiResponse<SubscriptionResponse>> getSubscription(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(ApiResponse.success(myPageService.getSubscription(user)));
+    }
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<ApiResponse<MyDashboardResponse>> getDashboard(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(ApiResponse.success(myPageService.getDashboard(user)));
     }
 
     @GetMapping("/certificates")
