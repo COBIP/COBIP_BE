@@ -121,4 +121,13 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
+
+    @Test
+    void dashboardEndpointReturnsSuccessEnvelope() throws Exception {
+        when(myPageService.getDashboard(isNull(User.class))).thenReturn(null);
+
+        mockMvc.perform(get("/api/v1/users/me/dashboard"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
 }
