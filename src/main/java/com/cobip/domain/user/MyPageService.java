@@ -1,12 +1,17 @@
 package com.cobip.domain.user;
 
+import java.util.List;
+
 import com.cobip.domain.activity.ActivityHistoryRepository;
+import com.cobip.domain.learning.LearningProgress;
 import com.cobip.domain.learning.LearningProgressRepository;
 import com.cobip.domain.subscription.SubscriptionRepository;
 import com.cobip.domain.template.TemplateFavoriteRepository;
 import com.cobip.domain.template.TemplateRepository;
+import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.dto.mypage.ActivityHistoryResponse;
 import com.cobip.dto.mypage.LearningProgressResponse;
+import com.cobip.dto.mypage.MyDashboardResponse;
 import com.cobip.dto.mypage.SubscriptionResponse;
 import com.cobip.dto.template.TemplateSummaryResponse;
 import com.cobip.dto.user.MyProfileResponse;
@@ -17,6 +22,7 @@ import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -97,6 +103,46 @@ public class MyPageService {
         return subscriptionRepository.findByUserId(user.getId())
                 .map(SubscriptionResponse::from)
                 .orElseGet(SubscriptionResponse::none);
+    }
+
+    @Transactional(readOnly = true)
+    public MyDashboardResponse getDashboard(User user) {
+        List<LearningProgress> progresses = learningProgressRepository.findByUserId(user.getId());
+        long totalStudySeconds = progresses.stream().mapToLong(LearningProgress::getStudySeconds).sum();
+        int solvedCount = progresses.stream().mapToInt(LearningProgress::getSolvedCount).sum();
+        int correctCount = progresses.stream().mapToInt(LearningProgress::getCorrectCount).sum();
+        double averageCorrectRate = solvedCount == 0 ? 0 : (double) correctCount / solvedCount;
+
+        List<LearningProgressResponse> recentLearning = learningProgressRepository
+                .findTop5ByUserIdOrderByLastAccessedAtDesc(user.getId())
+                .stream()
+                .map(LearningProgressResponse::from)
+                .toList();
+        List<ActivityHistoryResponse> recentActivities = activityHistoryRepository
+                .findTop10ByUserIdOrderByCreatedAtDesc(user.getId())
+                .stream()
+                .map(ActivityHistoryResponse::from)
+                .toList();
+        List<TemplateSummaryResponse> popularTemplates = templateRepository
+                .findByDeletedAtIsNullAndVisibilityOrderByFavoriteCountDescViewCountDesc(
+                        TemplateVisibility.PUBLIC,
+                        PageRequest.of(0, 5)
+                )
+                .stream()
+                .map(TemplateSummaryResponse::from)
+                .toList();
+
+        return new MyDashboardResponse(
+                templateRepository.countByOwnerIdAndDeletedAtIsNull(user.getId()),
+                learningProgressRepository.countByUserIdAndProgressPercentLessThan(user.getId(), 100),
+                learningProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(user.getId(), 100),
+                totalStudySeconds,
+                averageCorrectRate,
+                getSubscription(user),
+                popularTemplates,
+                recentLearning,
+                recentActivities
+        );
     }
 
     private User getManagedUser(User user) {
