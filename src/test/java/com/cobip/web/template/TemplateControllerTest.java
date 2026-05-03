@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.cobip.domain.certificate.CertificateService;
 import com.cobip.domain.template.TemplateDifficulty;
 import com.cobip.domain.template.TemplateService;
 import com.cobip.domain.user.User;
@@ -43,6 +44,9 @@ class TemplateControllerTest {
 
     @MockitoBean
     private TemplateService templateService;
+
+    @MockitoBean
+    private CertificateService certificateService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -153,6 +157,15 @@ class TemplateControllerTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         mockMvc.perform(delete("/api/v1/templates/1/favorite"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void issueCertificateReturnsSuccessResponse() throws Exception {
+        when(certificateService.issueCertificate(isNull(User.class), eq(1L))).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/templates/1/certificates"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
