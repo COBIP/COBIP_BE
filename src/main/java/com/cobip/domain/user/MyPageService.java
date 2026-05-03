@@ -1,0 +1,106 @@
+package com.cobip.domain.user;
+
+import com.cobip.domain.activity.ActivityHistoryRepository;
+import com.cobip.domain.learning.LearningProgressRepository;
+import com.cobip.domain.subscription.SubscriptionRepository;
+import com.cobip.domain.template.TemplateFavoriteRepository;
+import com.cobip.domain.template.TemplateRepository;
+import com.cobip.dto.mypage.ActivityHistoryResponse;
+import com.cobip.dto.mypage.LearningProgressResponse;
+import com.cobip.dto.mypage.SubscriptionResponse;
+import com.cobip.dto.template.TemplateSummaryResponse;
+import com.cobip.dto.user.MyProfileResponse;
+import com.cobip.dto.user.MyProfileUpdateRequest;
+import com.cobip.dto.user.PasswordChangeRequest;
+import com.cobip.global.common.PageResponse;
+import com.cobip.global.exception.CustomException;
+import com.cobip.global.exception.ErrorCode;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class MyPageService {
+
+    private final UserRepository userRepository;
+    private final TemplateRepository templateRepository;
+    private final TemplateFavoriteRepository templateFavoriteRepository;
+    private final LearningProgressRepository learningProgressRepository;
+    private final ActivityHistoryRepository activityHistoryRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Transactional(readOnly = true)
+    public MyProfileResponse getProfile(User user) {
+        return MyProfileResponse.from(user);
+    }
+
+    @Transactional
+    public MyProfileResponse updateProfile(User user, MyProfileUpdateRequest request) {
+        User managedUser = getManagedUser(user);
+        if (request.getNickname() != null
+                && !request.getNickname().isBlank()
+                && userRepository.existsByNicknameAndIdNot(request.getNickname(), managedUser.getId())) {
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+        managedUser.updateProfile(request.getNickname(), request.getProfileImageUrl());
+        return MyProfileResponse.from(managedUser);
+    }
+
+    @Transactional
+    public void changePassword(User user, PasswordChangeRequest request) {
+        User managedUser = getManagedUser(user);
+        if (!passwordEncoder.matches(request.getCurrentPassword(), managedUser.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
+        }
+        managedUser.changePassword(passwordEncoder.encode(request.getNewPassword()));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TemplateSummaryResponse> getMyTemplates(User user, Pageable pageable) {
+        Page<TemplateSummaryResponse> templates = templateRepository.findByOwnerIdAndDeletedAtIsNull(user.getId(), pageable)
+                .map(TemplateSummaryResponse::from);
+        return PageResponse.from(templates);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TemplateSummaryResponse> getFavoriteTemplates(User user, Pageable pageable) {
+        Page<TemplateSummaryResponse> templates = templateFavoriteRepository.findByUserId(user.getId(), pageable)
+                .map(favorite -> TemplateSummaryResponse.from(favorite.getTemplate()));
+        return PageResponse.from(templates);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<LearningProgressResponse> getLearningProgress(User user, Pageable pageable) {
+        Page<LearningProgressResponse> progresses = learningProgressRepository
+                .findByUserIdOrderByLastAccessedAtDesc(user.getId(), pageable)
+                .map(LearningProgressResponse::from);
+        return PageResponse.from(progresses);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ActivityHistoryResponse> getActivities(User user, Pageable pageable) {
+        Page<ActivityHistoryResponse> activities = activityHistoryRepository
+                .findByUserIdOrderByCreatedAtDesc(user.getId(), pageable)
+                .map(ActivityHistoryResponse::from);
+        return PageResponse.from(activities);
+    }
+
+    @Transactional(readOnly = true)
+    public SubscriptionResponse getSubscription(User user) {
+        return subscriptionRepository.findByUserId(user.getId())
+                .map(SubscriptionResponse::from)
+                .orElseGet(SubscriptionResponse::none);
+    }
+
+    private User getManagedUser(User user) {
+        return userRepository.findById(user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+}
