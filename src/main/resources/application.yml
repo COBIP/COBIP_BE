@@ -5,6 +5,10 @@ spring:
     default: local
   jpa:
     open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 server:
   shutdown: graceful
@@ -16,7 +20,7 @@ management:
         include: health,info
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY:}
+  secret-key: ${JWT_SECRET_KEY:local-development-jwt-secret-key-change-me-32-bytes}
   issuer: ${JWT_ISSUER:cobip}
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:1209600000}

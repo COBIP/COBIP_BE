@@ -1,63 +1,104 @@
 package com.cobip.domain.user;
 
+import com.cobip.dto.auth.AuthResponse;
 import com.cobip.dto.auth.LoginRequest;
+import com.cobip.dto.auth.RefreshTokenRequest;
 import com.cobip.dto.auth.SignupRequest;
-import lombok.RequiredArgsConstructor;
+import com.cobip.global.exception.CustomException;
+import com.cobip.global.exception.ErrorCode;
+import com.cobip.global.jwt.JwtProvider;
+import com.cobip.infra.redis.RedisService;
+
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
-
     private final PasswordEncoder passwordEncoder;
-    // 비밀번호 암호화/검증 담당
+    private final JwtProvider jwtProvider;
+    private final RedisService redisService;
 
-    // 회원가입
-    public void signup(SignupRequest req) {
+    @Transactional
+    public AuthResponse signup(SignupRequest request) {
+        validateSignupRequest(request);
 
-        // 1. 비밀번호 확인
-        if (!req.getPassword().equals(req.getConfirmPassword())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다");
-        }
-
-        // 2. 이메일 중복 체크
-        userRepository.findByEmail(req.getEmail())
-                .ifPresent(u -> {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 이메일입니다");
-                });
-
-        // 3. 비밀번호 암호화 후 저장
         try {
-            userRepository.save(User.builder()
-                    .email(req.getEmail())
-                    .password(passwordEncoder.encode(req.getPassword()))
-                    .nickname(req.getNickname())
+            User user = userRepository.save(User.builder()
+                    .email(request.getEmail())
+                    .password(passwordEncoder.encode(request.getPassword()))
+                    .nickname(request.getNickname())
+                    .role(UserRole.USER)
                     .build());
+            return issueTokens(user);
         } catch (DataIntegrityViolationException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 이메일입니다", e);
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL, e);
         }
     }
 
-    // 로그인
-    public User login(LoginRequest req) {
+    @Transactional
+    public AuthResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
-        // 1. 이메일로 유저 조회
-        User user = userRepository.findByEmail(req.getEmail())
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 틀렸습니다")
-                );
-
-        // 2. 비밀번호 검증
-        if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 틀렸습니다");
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        return user;
+        return issueTokens(user);
+    }
+
+    @Transactional
+    public AuthResponse reissue(RefreshTokenRequest request) {
+        if (!jwtProvider.validateToken(request.getRefreshToken())) {
+            throw new CustomException(ErrorCode.LOGIN_REQUIRED);
+        }
+
+        Long userId = jwtProvider.getUserId(request.getRefreshToken());
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if (!redisService.matchesRefreshToken(userId, request.getRefreshToken())) {
+            throw new CustomException(ErrorCode.LOGIN_REQUIRED);
+        }
+
+        return issueTokens(user);
+    }
+
+    public void logout(User user) {
+        redisService.deleteRefreshToken(user.getId());
+    }
+
+    public User findById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private void validateSignupRequest(SignupRequest request) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        if (userRepository.existsByNickname(request.getNickname())) {
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+    }
+
+    private AuthResponse issueTokens(User user) {
+        String accessToken = jwtProvider.createAccessToken(user.getId(), user.getEmail());
+        String refreshToken = jwtProvider.createRefreshToken(user.getId(), user.getEmail());
+
+        // Refresh Token은 로그아웃 또는 만료 시 삭제할 수 있도록 Redis에 저장한다.
+        redisService.saveRefreshToken(user.getId(), refreshToken, jwtProvider.getRefreshTokenExpiration());
+
+        return new AuthResponse(accessToken, refreshToken);
     }
 }
