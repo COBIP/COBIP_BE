@@ -2,10 +2,12 @@ package com.cobip.web.admin;
 
 import com.cobip.domain.grammar.GrammarTemplateDifficulty;
 import com.cobip.domain.grammar.GrammarTemplateLanguage;
+import com.cobip.domain.grammar.GrammarTemplateMediaType;
 import com.cobip.domain.grammar.GrammarTemplateService;
 import com.cobip.domain.grammar.GrammarTemplateStatus;
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateDetailResponse;
+import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
 import com.cobip.dto.grammar.GrammarTemplateStatusUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateSummaryResponse;
 import com.cobip.dto.grammar.GrammarTemplateUpdateRequest;
@@ -26,7 +28,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -96,4 +100,15 @@ public class AdminGrammarTemplateController {
         ));
     }
 
+    @PostMapping("/{templateId}/media")
+    public ResponseEntity<ApiResponse<GrammarTemplateMediaUploadResponse>> uploadMedia(
+        @PathVariable Long templateId,
+        @RequestParam GrammarTemplateMediaType type,
+        @RequestPart MultipartFile file
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Grammar template media uploaded.",
+                grammarTemplateService.uploadMedia(templateId, type, file)
+        ));
+    }
 }

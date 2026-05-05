@@ -4,11 +4,14 @@ import java.util.Locale;
 
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateDetailResponse;
+import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
 import com.cobip.dto.grammar.GrammarTemplateSummaryResponse;
 import com.cobip.dto.grammar.GrammarTemplateUpdateRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
+import com.cobip.infra.aws.S3Service;
+import com.cobip.infra.aws.S3UploadResult;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import org.springframework.data.domain.Page;
@@ -16,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +29,7 @@ public class GrammarTemplateService {
 
     private final GrammarTemplateRepository grammarTemplateRepository;
     private final GrammarTemplateTextExtractor textExtractor;
+    private final S3Service s3Service;
 
     @Transactional
     public GrammarTemplateDetailResponse createGrammarTemplate(GrammarTemplateCreateRequest request) {
@@ -103,6 +108,23 @@ public class GrammarTemplateService {
         GrammarTemplate template = getActiveTemplate(templateId);
         template.changeStatus(status);
         return GrammarTemplateDetailResponse.from(template);
+    }
+
+    @Transactional(readOnly = true)
+    public GrammarTemplateMediaUploadResponse uploadMedia(
+        Long templateId,
+        GrammarTemplateMediaType mediaType,
+        MultipartFile file
+    ) {
+        GrammarTemplate template = getActiveTemplate(templateId);
+        S3UploadResult result = s3Service.uploadGrammarTemplateMedia(template.getId(), mediaType, file);
+        return new GrammarTemplateMediaUploadResponse(
+                template.getId(),
+                mediaType,
+                result.key(),
+                result.url(),
+                file.getContentType()
+        );
     }
 
     private GrammarTemplate getActiveTemplate(Long templateId) {

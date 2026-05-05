@@ -1,7 +1,10 @@
 package com.cobip.infra.aws;
 
 import java.io.IOException;
+import java.util.Locale;
+import java.util.Set;
 
+import com.cobip.domain.grammar.GrammarTemplateMediaType;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
 
@@ -16,6 +19,19 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @Service
 public class S3Service {
+
+    private static final Set<String> IMAGE_CONTENT_TYPES = Set.of(
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "image/gif"
+    );
+
+    private static final Set<String> VIDEO_CONTENT_TYPES = Set.of(
+            "video/mp4",
+            "video/webm",
+            "video/quicktime"
+    );
 
     private final ObjectProvider<S3Client> s3ClientProvider;
     private final String bucket;
@@ -36,6 +52,21 @@ public class S3Service {
     public S3UploadResult uploadThumbnail(Long templateId, MultipartFile file) {
         validateFile(file);
         return upload("templates/%d/thumbnail/%s".formatted(templateId, file.getOriginalFilename()), file);
+    }
+
+    public S3UploadResult uploadGrammarTemplateMedia(
+        Long templateId,
+        GrammarTemplateMediaType mediaType,
+        MultipartFile file
+    ) {
+        validateFile(file);
+        validateGrammarTemplateMedia(mediaType, file);
+
+        String folder = mediaType == GrammarTemplateMediaType.IMAGE ? "images" : "videos";
+        return upload(
+                "grammar-templates/%d/%s/%s".formatted(templateId, folder, safeFilename(file)),
+                file
+        );
     }
 
     private S3UploadResult upload(String key, MultipartFile file) {
@@ -64,5 +95,35 @@ public class S3Service {
         if (file == null || file.isEmpty()) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
+    }
+
+    private void validateGrammarTemplateMedia(GrammarTemplateMediaType mediaType, MultipartFile file) {
+        if (mediaType == null) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || contentType.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        String normalizedContentType = contentType.toLowerCase(Locale.ROOT);
+        boolean allowed = mediaType == GrammarTemplateMediaType.IMAGE
+                ? IMAGE_CONTENT_TYPES.contains(normalizedContentType)
+                : VIDEO_CONTENT_TYPES.contains(normalizedContentType);
+        if (!allowed) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+    }
+
+    private String safeFilename(MultipartFile file) {
+        String filename = file.getOriginalFilename();
+        if (filename == null || filename.isBlank()) {
+            return "upload";
+        }
+
+        String normalizedFilename = filename.replace('\\', '/');
+        int lastSeparator = normalizedFilename.lastIndexOf('/');
+        return lastSeparator >= 0 ? normalizedFilename.substring(lastSeparator + 1) : normalizedFilename;
     }
 }
