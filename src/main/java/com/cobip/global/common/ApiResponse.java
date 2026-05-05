@@ -1,23 +1,29 @@
 package com.cobip.global.common;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
 public class ApiResponse<T> {
 
-    private int status;
-    private String message;
-    private T data;
+    private final boolean success;
+    private final String message;
+    private final T data;
 
-    // 성공 응답
-    public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(200, "success", data);
+    private ApiResponse(boolean success, String message, T data) {
+        this.success = success;
+        this.message = message;
+        this.data = data;
     }
 
-    // 실패 응답
-    public static <T> ApiResponse<T> error(int status, String message) {
-        return new ApiResponse<>(status, message, null);
+    public static <T> ApiResponse<T> success(T data) {
+        return new ApiResponse<>(true, "요청이 성공했습니다.", data);
+    }
+
+    public static <T> ApiResponse<T> success(String message, T data) {
+        return new ApiResponse<>(true, message, data);
+    }
+
+    public static ApiResponse<Void> error(String message) {
+        return new ApiResponse<>(false, message, null);
     }
 }
