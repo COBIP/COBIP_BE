@@ -28,6 +28,6 @@ public class ApiResponse<T> {
     }
 
     public static ApiResponse<Void> error(int status, String message) {
-        return error(message);
+        return error(message); // status는 무시 (호환용)
     }
 }
