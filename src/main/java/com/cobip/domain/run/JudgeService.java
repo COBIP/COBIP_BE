@@ -3,6 +3,8 @@ package com.cobip.domain.run;
 import com.cobip.dto.run.JudgeResponse;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class JudgeService {
 
@@ -12,19 +14,37 @@ public class JudgeService {
         this.codeRunService = codeRunService;
     }
 
-    // 코드 실행 후 결과 비교
+    // 여러 테스트케이스로 채점
     public JudgeResponse judge(String code) throws Exception {
 
-        // 테스트 입력/정답 (MVP)
-        String input = "1 1";
-        String expected = "2";
+        // 테스트케이스 목록
+        List<String[]> testCases = List.of(
+                new String[]{"1 1", "2"},
+                new String[]{"2 3", "5"},
+                new String[]{"10 20", "30"}
+        );
 
-        // 코드 실행
-        String output = codeRunService.runPythonWithInput(code, input);
+        boolean allPass = true;
+        String lastOutput = "";
+        String expected = "";
 
-        // 결과 비교
-        boolean success = output.equals(expected);
+        for (String[] tc : testCases) {
 
-        return new JudgeResponse(success, output, expected);
+            String input = tc[0];
+            expected = tc[1];
+
+            // 코드 실행
+            String output = codeRunService.runPythonWithInput(code, input);
+
+            lastOutput = output;
+
+            // 하나라도 틀리면 실패
+            if (!output.equals(expected)) {
+                allPass = false;
+                break;
+            }
+        }
+
+        return new JudgeResponse(allPass, lastOutput, expected);
     }
 }
