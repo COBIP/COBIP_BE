@@ -20,7 +20,12 @@ public class RunController {
     public ResponseEntity<?> run(@RequestBody RunRequest req) {
 
         try {
-            String output = codeRunService.runPythonWithInput(req.getCode(), "");
+            // 🔥 언어 분기 실행
+            String output = codeRunService.runWithInput(
+                    req.getLanguage(),
+                    req.getCode(),
+                    "" // run은 입력 없이 실행 (MVP)
+            );
 
             return ResponseEntity.ok(
                     ApiResponse.success(new RunResponse(output))

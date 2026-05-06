@@ -14,8 +14,8 @@ public class JudgeService {
         this.codeRunService = codeRunService;
     }
 
-    // 여러 테스트케이스로 채점
-    public JudgeResponse judge(String code) throws Exception {
+    // 여러 테스트케이스로 채점 (언어 공통)
+    public JudgeResponse judge(String language, String code) throws Exception {
 
         // 테스트케이스 목록
         List<String[]> testCases = List.of(
@@ -33,8 +33,8 @@ public class JudgeService {
             String input = tc[0];
             expected = tc[1];
 
-            // 코드 실행
-            String output = codeRunService.runPythonWithInput(code, input);
+            // 🔥 언어별 실행 (핵심)
+            String output = codeRunService.runWithInput(language, code, input);
 
             lastOutput = output;
 
