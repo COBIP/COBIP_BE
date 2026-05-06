@@ -29,7 +29,7 @@ public class RunController {
         } catch (Exception e) {
             return ResponseEntity
                     .status(500)
-                    .body(ApiResponse.error(500, "코드 실행 실패"));
+                    .body(ApiResponse.error("코드 실행 실패"));
         }
     }
 }
