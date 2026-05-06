@@ -26,7 +26,7 @@ public class JudgeController {
         } catch (Exception e) {
             return ResponseEntity
                     .status(500)
-                    .body(ApiResponse.error(500, "채점 실패"));
+                    .body(ApiResponse.error("코드 실행 실패"));
         }
     }
 }
