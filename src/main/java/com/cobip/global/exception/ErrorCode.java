@@ -25,6 +25,7 @@ public enum ErrorCode {
     EMAIL_VERIFICATION_FAILED(HttpStatus.BAD_REQUEST, "이메일 인증 코드가 올바르지 않거나 만료되었습니다."),
     EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송에 실패했습니다."),
     SUBSCRIPTION_PLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "구독 플랜을 찾을 수 없습니다."),
+    REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "신고를 찾을 수 없습니다."),
     CERTIFICATE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "수료 조건을 충족하지 않았습니다."),
     CERTIFICATE_ALREADY_ISSUED(HttpStatus.CONFLICT, "이미 발급된 수료증입니다."),
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "파일 업로드에 실패했습니다."),
