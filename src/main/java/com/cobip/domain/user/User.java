@@ -44,6 +44,10 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private UserRole role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus status;
+
     @Column(nullable = false)
     private boolean emailVerified;
 
@@ -58,5 +62,13 @@ public class User extends BaseTimeEntity {
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+
+    public void changeStatus(UserStatus status) {
+        this.status = status;
+    }
+
+    public boolean isActiveAccount() {
+        return status == UserStatus.ACTIVE;
     }
 }

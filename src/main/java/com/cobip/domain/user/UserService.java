@@ -36,6 +36,7 @@ public class UserService {
                     .password(passwordEncoder.encode(request.getPassword()))
                     .nickname(request.getNickname())
                     .role(UserRole.USER)
+                    .status(UserStatus.ACTIVE)
                     .emailVerified(true)
                     .build());
             AuthResponse response = issueTokens(user);
@@ -54,6 +55,9 @@ public class UserService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
+        if (!user.isActiveAccount()) {
+            throw new CustomException(ErrorCode.ACCOUNT_DISABLED);
+        }
         if (!user.isEmailVerified()) {
             throw new CustomException(ErrorCode.EMAIL_VERIFICATION_REQUIRED);
         }
@@ -71,6 +75,9 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        if (!user.isActiveAccount()) {
+            throw new CustomException(ErrorCode.ACCOUNT_DISABLED);
+        }
         if (!redisService.matchesRefreshToken(userId, request.getRefreshToken())) {
             throw new CustomException(ErrorCode.LOGIN_REQUIRED);
         }
