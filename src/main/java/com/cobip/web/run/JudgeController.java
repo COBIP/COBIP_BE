@@ -20,7 +20,7 @@ public class JudgeController {
 
         try {
             var result = judgeService.judge(
-                    req.getLanguage(),  // 🔥 추가
+                    req.getLanguage(),
                     req.getCode()
             );
 
@@ -29,7 +29,7 @@ public class JudgeController {
         } catch (Exception e) {
             return ResponseEntity
                     .status(500)
-                    .body(ApiResponse.error("채점 실패"));
+                    .body(ApiResponse.error("채점 및 코드 실행 실패"));
         }
     }
 }
