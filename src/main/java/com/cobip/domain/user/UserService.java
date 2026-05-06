@@ -36,6 +36,7 @@ public class UserService {
                     .password(passwordEncoder.encode(request.getPassword()))
                     .nickname(request.getNickname())
                     .role(UserRole.USER)
+                    .status(UserStatus.ACTIVE)
                     .emailVerified(true)
                     .build());
             AuthResponse response = issueTokens(user);
