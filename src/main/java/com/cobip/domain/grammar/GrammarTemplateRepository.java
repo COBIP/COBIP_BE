@@ -12,4 +12,8 @@ public interface GrammarTemplateRepository extends JpaRepository<GrammarTemplate
     boolean existsBySlugAndDeletedAtIsNull(String slug);
 
     boolean existsBySlugAndDeletedAtIsNullAndIdNot(String slug, Long id);
+
+    long countByDeletedAtIsNull();
+
+    long countByDeletedAtIsNullAndStatus(GrammarTemplateStatus status);
 }
