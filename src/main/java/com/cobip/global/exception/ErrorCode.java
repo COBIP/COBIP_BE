@@ -19,6 +19,7 @@ public enum ErrorCode {
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "이미 존재하는 닉네임입니다."),
     DUPLICATE_FAVORITE(HttpStatus.CONFLICT, "이미 찜한 템플릿입니다."),
     DUPLICATE_GRAMMAR_TEMPLATE_SLUG(HttpStatus.CONFLICT, "이미 존재하는 문법 템플릿 slug입니다."),
+    ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "계정이 활성 상태가 아닙니다."),
     EMAIL_VERIFICATION_REQUIRED(HttpStatus.BAD_REQUEST, "이메일 인증이 필요합니다."),
     EMAIL_VERIFICATION_FAILED(HttpStatus.BAD_REQUEST, "이메일 인증 코드가 올바르지 않거나 만료되었습니다."),
     EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송에 실패했습니다."),
