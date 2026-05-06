@@ -44,6 +44,9 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private UserRole role;
 
+    @Column(nullable = false)
+    private boolean emailVerified;
+
     public void updateProfile(String nickname, String profileImageUrl) {
         if (nickname != null && !nickname.isBlank()) {
             this.nickname = nickname;

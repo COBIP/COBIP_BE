@@ -9,8 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.cobip.domain.user.User;
+import com.cobip.domain.user.EmailVerificationService;
 import com.cobip.domain.user.UserService;
 import com.cobip.dto.auth.AuthResponse;
+import com.cobip.dto.auth.EmailVerificationConfirmRequest;
+import com.cobip.dto.auth.EmailVerificationSendRequest;
 import com.cobip.dto.auth.LoginRequest;
 import com.cobip.dto.auth.RefreshTokenRequest;
 import com.cobip.dto.auth.SignupRequest;
@@ -40,10 +43,46 @@ class AuthControllerTest {
     private UserService userService;
 
     @MockitoBean
+    private EmailVerificationService emailVerificationService;
+
+    @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    @Test
+    void sendEmailVerificationReturnsSuccessResponse() throws Exception {
+        doNothing().when(emailVerificationService).sendCode(any(EmailVerificationSendRequest.class));
+
+        mockMvc.perform(post("/api/v1/auth/email-verifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "user@example.com"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("이메일 인증 코드가 발송되었습니다."));
+    }
+
+    @Test
+    void confirmEmailVerificationReturnsSuccessResponse() throws Exception {
+        doNothing().when(emailVerificationService).confirmCode(any(EmailVerificationConfirmRequest.class));
+
+        mockMvc.perform(post("/api/v1/auth/email-verifications/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "user@example.com",
+                              "code": "123456"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("이메일 인증이 완료되었습니다."));
+    }
 
     @Test
     void signupReturnsTokenResponse() throws Exception {

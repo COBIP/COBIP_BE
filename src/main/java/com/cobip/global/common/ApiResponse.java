@@ -26,4 +26,8 @@ public class ApiResponse<T> {
     public static ApiResponse<Void> error(String message) {
         return new ApiResponse<>(false, message, null);
     }
+
+    public static ApiResponse<Void> error(int status, String message) {
+        return error(message);
+    }
 }

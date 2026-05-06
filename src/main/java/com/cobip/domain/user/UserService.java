@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final RedisService redisService;
@@ -35,8 +36,11 @@ public class UserService {
                     .password(passwordEncoder.encode(request.getPassword()))
                     .nickname(request.getNickname())
                     .role(UserRole.USER)
+                    .emailVerified(true)
                     .build());
-            return issueTokens(user);
+            AuthResponse response = issueTokens(user);
+            emailVerificationService.consumeVerifiedEmail(request.getEmail());
+            return response;
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.DUPLICATE_EMAIL, e);
         }
@@ -49,6 +53,9 @@ public class UserService {
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
+        }
+        if (!user.isEmailVerified()) {
+            throw new CustomException(ErrorCode.EMAIL_VERIFICATION_REQUIRED);
         }
 
         return issueTokens(user);
@@ -89,6 +96,9 @@ public class UserService {
         }
         if (userRepository.existsByNickname(request.getNickname())) {
             throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+        if (!emailVerificationService.isVerified(request.getEmail())) {
+            throw new CustomException(ErrorCode.EMAIL_VERIFICATION_REQUIRED);
         }
     }
 
