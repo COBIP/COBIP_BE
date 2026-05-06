@@ -3,11 +3,15 @@ package com.cobip.domain.user;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.cobip.domain.activity.ActivityHistoryService;
+import com.cobip.domain.activity.ActivityType;
 import com.cobip.dto.admin.AdminUserDetailResponse;
+import com.cobip.dto.admin.AdminUserStatusUpdateRequest;
 import com.cobip.dto.admin.AdminUserSummaryResponse;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
+import com.cobip.infra.redis.RedisService;
 
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminUserService {
 
     private final UserRepository userRepository;
+    private final RedisService redisService;
+    private final ActivityHistoryService activityHistoryService;
 
     @Transactional(readOnly = true)
     public PageResponse<AdminUserSummaryResponse> getUsers(
@@ -40,6 +46,27 @@ public class AdminUserService {
     @Transactional(readOnly = true)
     public AdminUserDetailResponse getUser(Long userId) {
         return AdminUserDetailResponse.from(findUser(userId));
+    }
+
+    @Transactional
+    public AdminUserDetailResponse changeStatus(Long userId, AdminUserStatusUpdateRequest request, User adminUser) {
+        User user = findUser(userId);
+        user.changeStatus(request.getStatus());
+
+        if (!user.isActiveAccount()) {
+            redisService.deleteRefreshToken(user.getId());
+        }
+        if (adminUser != null) {
+            activityHistoryService.record(
+                    adminUser,
+                    ActivityType.ADMIN_USER_STATUS_CHANGED,
+                    "Admin changed user status to " + request.getStatus(),
+                    "USER",
+                    user.getId()
+            );
+        }
+
+        return AdminUserDetailResponse.from(user);
     }
 
     private User findUser(Long userId) {

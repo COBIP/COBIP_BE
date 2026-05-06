@@ -1,21 +1,27 @@
 package com.cobip.web.admin;
 
 import com.cobip.domain.user.AdminUserService;
+import com.cobip.domain.user.User;
 import com.cobip.domain.user.UserRole;
 import com.cobip.domain.user.UserStatus;
 import com.cobip.dto.admin.AdminUserDetailResponse;
+import com.cobip.dto.admin.AdminUserStatusUpdateRequest;
 import com.cobip.dto.admin.AdminUserSummaryResponse;
 import com.cobip.global.common.ApiResponse;
 import com.cobip.global.common.PageResponse;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,4 +51,15 @@ public class AdminUserController {
         return ResponseEntity.ok(ApiResponse.success(adminUserService.getUser(userId)));
     }
 
+    @PatchMapping("/{userId}/status")
+    public ResponseEntity<ApiResponse<AdminUserDetailResponse>> changeStatus(
+        @PathVariable Long userId,
+        @RequestBody @Valid AdminUserStatusUpdateRequest request,
+        @AuthenticationPrincipal User adminUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Admin user status updated.",
+                adminUserService.changeStatus(userId, request, adminUser)
+        ));
+    }
 }
