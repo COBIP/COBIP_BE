@@ -217,6 +217,11 @@ public class Template extends BaseTimeEntity {
         this.thumbnailUrl = thumbnailUrl;
     }
 
+    public void changeExposure(TemplateVisibility visibility, TemplateAccessLevel accessLevel) {
+        this.visibility = visibility;
+        this.accessLevel = accessLevel;
+    }
+
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
