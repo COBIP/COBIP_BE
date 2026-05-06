@@ -1,8 +1,11 @@
 package com.cobip.web.auth;
 
 import com.cobip.domain.user.User;
+import com.cobip.domain.user.EmailVerificationService;
 import com.cobip.domain.user.UserService;
 import com.cobip.dto.auth.AuthResponse;
+import com.cobip.dto.auth.EmailVerificationConfirmRequest;
+import com.cobip.dto.auth.EmailVerificationSendRequest;
 import com.cobip.dto.auth.LoginRequest;
 import com.cobip.dto.auth.RefreshTokenRequest;
 import com.cobip.dto.auth.SignupRequest;
@@ -24,6 +27,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final UserService userService;
+    private final EmailVerificationService emailVerificationService;
+
+    @PostMapping("/email-verifications")
+    public ResponseEntity<ApiResponse<Void>> sendEmailVerification(
+        @RequestBody @Valid EmailVerificationSendRequest request
+    ) {
+        emailVerificationService.sendCode(request);
+        return ResponseEntity.ok(ApiResponse.success("이메일 인증 코드가 발송되었습니다.", null));
+    }
+
+    @PostMapping("/email-verifications/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmEmailVerification(
+        @RequestBody @Valid EmailVerificationConfirmRequest request
+    ) {
+        emailVerificationService.confirmCode(request);
+        return ResponseEntity.ok(ApiResponse.success("이메일 인증이 완료되었습니다.", null));
+    }
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<AuthResponse>> signup(@RequestBody @Valid SignupRequest request) {
