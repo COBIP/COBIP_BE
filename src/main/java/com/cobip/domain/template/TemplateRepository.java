@@ -23,4 +23,10 @@ public interface TemplateRepository extends JpaRepository<Template, Long>, JpaSp
     );
 
     long countByOwnerIdAndDeletedAtIsNull(Long ownerId);
+
+    long countByDeletedAtIsNull();
+
+    long countByDeletedAtIsNullAndVisibility(TemplateVisibility visibility);
+
+    long countByDeletedAtIsNullAndAccessLevel(TemplateAccessLevel accessLevel);
 }

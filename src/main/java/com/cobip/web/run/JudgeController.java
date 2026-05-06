@@ -19,14 +19,17 @@ public class JudgeController {
     public ResponseEntity<?> judge(@RequestBody JudgeRequest req) {
 
         try {
-            var result = judgeService.judge(req.getCode());
+            var result = judgeService.judge(
+                    req.getLanguage(),
+                    req.getCode()
+            );
 
             return ResponseEntity.ok(ApiResponse.success(result));
 
         } catch (Exception e) {
             return ResponseEntity
                     .status(500)
-                    .body(ApiResponse.error("코드 실행 실패"));
+                    .body(ApiResponse.error("채점 및 코드 실행 실패"));
         }
     }
 }
