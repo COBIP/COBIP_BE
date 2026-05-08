@@ -3,7 +3,10 @@ package com.cobip.domain.coding;
 import java.util.Locale;
 
 import com.cobip.dto.coding.CodingProblemSummaryResponse;
+import com.cobip.dto.coding.CodingProblemDetailResponse;
 import com.cobip.global.common.PageResponse;
+import com.cobip.global.exception.CustomException;
+import com.cobip.global.exception.ErrorCode;
 
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,13 @@ public class CodingProblemService {
                 publicProblemSpec(keyword, category, difficulty),
                 pageable
         ).map(CodingProblemSummaryResponse::from));
+    }
+
+    @Transactional(readOnly = true)
+    public CodingProblemDetailResponse getProblem(Long problemId) {
+        CodingProblem problem = codingProblemRepository.findByIdAndPublishedTrueAndDeletedAtIsNull(problemId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CODING_PROBLEM_NOT_FOUND));
+        return CodingProblemDetailResponse.from(problem);
     }
 
     private Specification<CodingProblem> publicProblemSpec(

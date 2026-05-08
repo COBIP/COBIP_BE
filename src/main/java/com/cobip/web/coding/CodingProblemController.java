@@ -2,6 +2,7 @@ package com.cobip.web.coding;
 
 import com.cobip.domain.coding.CodingProblemDifficulty;
 import com.cobip.domain.coding.CodingProblemService;
+import com.cobip.dto.coding.CodingProblemDetailResponse;
 import com.cobip.dto.coding.CodingProblemSummaryResponse;
 import com.cobip.global.common.ApiResponse;
 import com.cobip.global.common.PageResponse;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,5 +36,10 @@ public class CodingProblemController {
         return ResponseEntity.ok(ApiResponse.success(
                 codingProblemService.getProblems(keyword, category, difficulty, pageable)
         ));
+    }
+
+    @GetMapping("/{problemId}")
+    public ResponseEntity<ApiResponse<CodingProblemDetailResponse>> getProblem(@PathVariable Long problemId) {
+        return ResponseEntity.ok(ApiResponse.success(codingProblemService.getProblem(problemId)));
     }
 }
