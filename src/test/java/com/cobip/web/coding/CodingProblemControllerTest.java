@@ -55,4 +55,13 @@ class CodingProblemControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray());
     }
+
+    @Test
+    void getProblemReturnsDetailResponseEnvelope() throws Exception {
+        when(codingProblemService.getProblem(1L)).thenReturn(null);
+
+        mockMvc.perform(get("/api/v1/coding-problems/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
 }
