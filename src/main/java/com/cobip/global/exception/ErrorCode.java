@@ -13,6 +13,7 @@ public enum ErrorCode {
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "템플릿을 찾을 수 없습니다."),
+    TEMPLATE_PRACTICE_MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "템플릿 실습 미션을 찾을 수 없습니다."),
     GRAMMAR_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "문법 템플릿을 찾을 수 없습니다."),
     CODING_WORKBOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "코테집을 찾을 수 없습니다."),
     CODING_PROBLEM_NOT_FOUND(HttpStatus.NOT_FOUND, "코딩 문제를 찾을 수 없습니다."),
