@@ -33,6 +33,15 @@ management:
     mail:
       enabled: ${MAIL_HEALTH_ENABLED:false}
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
 jwt:
   secret-key: ${JWT_SECRET_KEY:local-development-jwt-secret-key-change-me-32-bytes}
   issuer: ${JWT_ISSUER:cobip}
