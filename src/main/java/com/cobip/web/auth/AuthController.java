@@ -2,11 +2,15 @@ package com.cobip.web.auth;
 
 import com.cobip.domain.user.User;
 import com.cobip.domain.user.EmailVerificationService;
+import com.cobip.domain.user.PasswordResetService;
 import com.cobip.domain.user.UserService;
 import com.cobip.dto.auth.AuthResponse;
 import com.cobip.dto.auth.EmailVerificationConfirmRequest;
 import com.cobip.dto.auth.EmailVerificationSendRequest;
 import com.cobip.dto.auth.LoginRequest;
+import com.cobip.dto.auth.PasswordResetConfirmRequest;
+import com.cobip.dto.auth.PasswordResetRequest;
+import com.cobip.dto.auth.PasswordResetSendRequest;
 import com.cobip.dto.auth.RefreshTokenRequest;
 import com.cobip.dto.auth.SignupRequest;
 import com.cobip.global.common.ApiResponse;
@@ -28,6 +32,7 @@ public class AuthController {
 
     private final UserService userService;
     private final EmailVerificationService emailVerificationService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/email-verifications")
     public ResponseEntity<ApiResponse<Void>> sendEmailVerification(
@@ -43,6 +48,28 @@ public class AuthController {
     ) {
         emailVerificationService.confirmCode(request);
         return ResponseEntity.ok(ApiResponse.success("이메일 인증이 완료되었습니다.", null));
+    }
+
+    @PostMapping("/password-reset/email-verifications")
+    public ResponseEntity<ApiResponse<Void>> sendPasswordResetVerification(
+        @RequestBody @Valid PasswordResetSendRequest request
+    ) {
+        passwordResetService.sendCode(request);
+        return ResponseEntity.ok(ApiResponse.success("비밀번호 재설정 인증 코드가 발송되었습니다.", null));
+    }
+
+    @PostMapping("/password-reset/email-verifications/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmPasswordResetVerification(
+        @RequestBody @Valid PasswordResetConfirmRequest request
+    ) {
+        passwordResetService.confirmCode(request);
+        return ResponseEntity.ok(ApiResponse.success("비밀번호 재설정 인증이 완료되었습니다.", null));
+    }
+
+    @PostMapping("/password-reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@RequestBody @Valid PasswordResetRequest request) {
+        passwordResetService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("비밀번호가 재설정되었습니다.", null));
     }
 
     @PostMapping("/signup")
