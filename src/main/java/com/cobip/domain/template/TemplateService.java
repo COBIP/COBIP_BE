@@ -1,5 +1,6 @@
 package com.cobip.domain.template;
 
+import java.util.List;
 import java.util.Locale;
 
 import com.cobip.domain.activity.ActivityHistoryService;
@@ -52,6 +53,16 @@ public class TemplateService {
                 .findAll(publicTemplateSpec(keyword, category, difficulty), pageable)
                 .map(TemplateSummaryResponse::from);
         return PageResponse.from(templates);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getCategories() {
+        return templateRepository.findPublicCategories();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getTechStacks() {
+        return templateRepository.findPublicTechStacks();
     }
 
     @Transactional
