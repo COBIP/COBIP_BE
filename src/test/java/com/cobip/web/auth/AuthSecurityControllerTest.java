@@ -1,22 +1,26 @@
 package com.cobip.web.auth;
 
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.cobip.domain.oauth.OAuthAuthService;
 import com.cobip.domain.user.EmailVerificationService;
 import com.cobip.domain.user.PasswordResetService;
-import com.cobip.domain.user.UserRepository;
 import com.cobip.domain.user.UserService;
 import com.cobip.global.config.CorsConfig;
 import com.cobip.global.config.SecurityConfig;
-import com.cobip.global.jwt.JwtProvider;
 import com.cobip.global.security.JwtAccessDeniedHandler;
 import com.cobip.global.security.JwtAuthenticationEntryPoint;
 import com.cobip.global.security.JwtAuthenticationFilter;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,10 +37,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(AuthController.class)
 @Import({
     SecurityConfig.class,
-    CorsConfig.class,
-    JwtAuthenticationFilter.class,
-    JwtAuthenticationEntryPoint.class,
-    JwtAccessDeniedHandler.class
+    CorsConfig.class
 })
 @TestPropertySource(properties = "app.cors.allowed-origins=http://localhost:3000")
 class AuthSecurityControllerTest {
@@ -54,18 +55,33 @@ class AuthSecurityControllerTest {
     private PasswordResetService passwordResetService;
 
     @MockitoBean
-    private JwtProvider jwtProvider;
+    private OAuthAuthService oAuthAuthService;
 
     @MockitoBean
-    private UserRepository userRepository;
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    @MockitoBean
+    private JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     @BeforeEach
-    void setUp() {
-        when(jwtProvider.getAuthorizationHeader()).thenReturn(HttpHeaders.AUTHORIZATION);
-        when(jwtProvider.resolveToken(isNull())).thenReturn(null);
+    void setUp() throws Exception {
+        doAnswer(invocation -> {
+            FilterChain filterChain = invocation.getArgument(2);
+            filterChain.doFilter(invocation.getArgument(0), invocation.getArgument(1));
+            return null;
+        }).when(jwtAuthenticationFilter).doFilter(any(ServletRequest.class), any(ServletResponse.class), any(FilterChain.class));
+
+        doAnswer(invocation -> {
+            HttpServletResponse response = invocation.getArgument(1);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return null;
+        }).when(jwtAuthenticationEntryPoint).commence(any(), any(), any());
     }
 
     @Test
