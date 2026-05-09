@@ -11,12 +11,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.cobip.domain.user.User;
 import com.cobip.domain.user.EmailVerificationService;
+import com.cobip.domain.oauth.OAuthAuthService;
 import com.cobip.domain.user.PasswordResetService;
 import com.cobip.domain.user.UserService;
 import com.cobip.dto.auth.AuthResponse;
 import com.cobip.dto.auth.EmailVerificationConfirmRequest;
 import com.cobip.dto.auth.EmailVerificationSendRequest;
 import com.cobip.dto.auth.LoginRequest;
+import com.cobip.dto.auth.OAuthLoginRequest;
 import com.cobip.dto.auth.PasswordResetConfirmRequest;
 import com.cobip.dto.auth.PasswordResetRequest;
 import com.cobip.dto.auth.PasswordResetSendRequest;
@@ -52,6 +54,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private PasswordResetService passwordResetService;
+
+    @MockitoBean
+    private OAuthAuthService oAuthAuthService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -208,6 +213,38 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"));
+    }
+
+    @Test
+    void oauthLoginReturnsTokenResponse() throws Exception {
+        when(oAuthAuthService.login(any(OAuthLoginRequest.class)))
+                .thenReturn(new AuthResponse("access-token", "refresh-token"));
+
+        mockMvc.perform(post("/api/v1/auth/oauth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "provider": "GOOGLE",
+                              "accessToken": "provider-access-token",
+                              "nickname": "cobip"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"));
+    }
+
+    @Test
+    void oauthLoginRejectsMissingAccessToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "provider": "GOOGLE"
+                            }
+                            """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
