@@ -69,6 +69,17 @@ class TemplateControllerTest {
     }
 
     @Test
+    void getRecommendedTemplatesReturnsPagedResponse() throws Exception {
+        when(templateService.getRecommendedTemplates(isNull(User.class), any(Pageable.class)))
+                .thenReturn(PageResponse.from(Page.empty()));
+
+        mockMvc.perform(get("/api/v1/templates/recommended"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content").isArray());
+    }
+
+    @Test
     void getTemplateReturnsDetailResponseEnvelope() throws Exception {
         when(templateService.getTemplate(eq(1L), isNull(User.class))).thenReturn(null);
 

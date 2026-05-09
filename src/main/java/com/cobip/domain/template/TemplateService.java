@@ -1,9 +1,12 @@
 package com.cobip.domain.template;
 
+import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Set;
 
 import com.cobip.domain.activity.ActivityHistoryService;
 import com.cobip.domain.activity.ActivityType;
+import com.cobip.domain.learning.LearningProgressRepository;
 import com.cobip.domain.subscription.SubscriptionService;
 import com.cobip.domain.user.User;
 import com.cobip.domain.user.UserRepository;
@@ -22,6 +25,7 @@ import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -36,6 +40,7 @@ public class TemplateService {
 
     private final TemplateRepository templateRepository;
     private final TemplateFavoriteRepository templateFavoriteRepository;
+    private final LearningProgressRepository learningProgressRepository;
     private final UserRepository userRepository;
     private final SubscriptionService subscriptionService;
     private final ActivityHistoryService activityHistoryService;
@@ -50,6 +55,26 @@ public class TemplateService {
     ) {
         Page<TemplateSummaryResponse> templates = templateRepository
                 .findAll(publicTemplateSpec(keyword, category, difficulty), pageable)
+                .map(TemplateSummaryResponse::from);
+        return PageResponse.from(templates);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TemplateSummaryResponse> getRecommendedTemplates(User user, Pageable pageable) {
+        Set<String> categories = recommendationCategories(user);
+
+        if (categories.isEmpty()) {
+            Page<TemplateSummaryResponse> templates = templateRepository
+                    .findByDeletedAtIsNullAndVisibilityOrderByFavoriteCountDescViewCountDesc(
+                            TemplateVisibility.PUBLIC,
+                            pageable
+                    )
+                    .map(TemplateSummaryResponse::from);
+            return PageResponse.from(templates);
+        }
+
+        Page<TemplateSummaryResponse> templates = templateRepository
+                .findAll(recommendedTemplateSpec(categories), pageable)
                 .map(TemplateSummaryResponse::from);
         return PageResponse.from(templates);
     }
@@ -202,6 +227,38 @@ public class TemplateService {
                 ));
             }
             return predicate;
+        };
+    }
+
+    private Set<String> recommendationCategories(User user) {
+        Set<String> categories = new LinkedHashSet<>();
+        if (user == null) {
+            return categories;
+        }
+
+        learningProgressRepository.findTop5ByUserIdOrderByLastAccessedAtDesc(user.getId())
+                .stream()
+                .map(progress -> progress.getTemplate().getCategory())
+                .filter(category -> category != null && !category.isBlank())
+                .forEach(categories::add);
+
+        templateFavoriteRepository.findByUserId(user.getId(), PageRequest.of(0, 20))
+                .stream()
+                .map(favorite -> favorite.getTemplate().getCategory())
+                .filter(category -> category != null && !category.isBlank())
+                .forEach(categories::add);
+
+        return categories;
+    }
+
+    private Specification<Template> recommendedTemplateSpec(Set<String> categories) {
+        return (root, query, criteriaBuilder) -> {
+            query.distinct(true);
+            return criteriaBuilder.and(
+                    criteriaBuilder.isNull(root.get("deletedAt")),
+                    criteriaBuilder.equal(root.get("visibility"), TemplateVisibility.PUBLIC),
+                    root.get("category").in(categories)
+            );
         };
     }
 }
