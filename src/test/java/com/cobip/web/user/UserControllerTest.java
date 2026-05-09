@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,6 +15,7 @@ import com.cobip.domain.user.MyPageService;
 import com.cobip.domain.user.User;
 import com.cobip.dto.user.MyProfileUpdateRequest;
 import com.cobip.dto.user.PasswordChangeRequest;
+import com.cobip.dto.user.UserWithdrawalRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.security.JwtAuthenticationFilter;
 
@@ -82,6 +84,22 @@ class UserControllerTest {
                             {
                               "currentPassword": "Password1!",
                               "newPassword": "NewPassword1!"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void withdrawAcceptsDeleteRequest() throws Exception {
+        doNothing().when(myPageService).withdraw(isNull(User.class), any(UserWithdrawalRequest.class));
+
+        mockMvc.perform(delete("/api/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "currentPassword": "Password1!",
+                              "reason": "no longer needed"
                             }
                             """))
                 .andExpect(status().isOk())
