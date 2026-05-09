@@ -128,6 +128,16 @@ public class CommunityPost extends BaseTimeEntity {
         }
     }
 
+    public void increaseLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decreaseLikeCount() {
+        if (likeCount > 0) {
+            this.likeCount--;
+        }
+    }
+
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
