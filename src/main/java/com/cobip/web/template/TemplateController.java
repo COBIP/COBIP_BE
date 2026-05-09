@@ -50,6 +50,14 @@ public class TemplateController {
         return ResponseEntity.ok(ApiResponse.success(templateService.getTemplates(keyword, category, difficulty, pageable)));
     }
 
+    @GetMapping("/recommended")
+    public ResponseEntity<ApiResponse<PageResponse<TemplateSummaryResponse>>> getRecommendedTemplates(
+        @AuthenticationPrincipal User user,
+        @PageableDefault(size = 10) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(templateService.getRecommendedTemplates(user, pageable)));
+    }
+
     @GetMapping("/{templateId}")
     public ResponseEntity<ApiResponse<TemplateDetailResponse>> getTemplate(
         @PathVariable Long templateId,
