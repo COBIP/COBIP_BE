@@ -1,7 +1,12 @@
 package com.cobip.domain.user;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
+import com.cobip.domain.activity.ActivityHistory;
 import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.learning.LearningProgress;
 import com.cobip.domain.learning.LearningProgressRepository;
@@ -13,6 +18,7 @@ import com.cobip.dto.mypage.ActivityHistoryResponse;
 import com.cobip.dto.mypage.LearningProgressResponse;
 import com.cobip.dto.mypage.MyDashboardResponse;
 import com.cobip.dto.mypage.SubscriptionResponse;
+import com.cobip.dto.mypage.WeeklyActivityResponse;
 import com.cobip.dto.template.TemplateSummaryResponse;
 import com.cobip.dto.user.MyProfileResponse;
 import com.cobip.dto.user.MyProfileUpdateRequest;
@@ -123,6 +129,7 @@ public class MyPageService {
                 .stream()
                 .map(ActivityHistoryResponse::from)
                 .toList();
+        List<WeeklyActivityResponse> weeklyActivities = getWeeklyActivities(user);
         List<TemplateSummaryResponse> popularTemplates = templateRepository
                 .findByDeletedAtIsNullAndVisibilityOrderByFavoriteCountDescViewCountDesc(
                         TemplateVisibility.PUBLIC,
@@ -139,10 +146,33 @@ public class MyPageService {
                 totalStudySeconds,
                 averageCorrectRate,
                 getSubscription(user),
+                recentLearning.isEmpty() ? null : recentLearning.getFirst(),
+                weeklyActivities,
                 popularTemplates,
                 recentLearning,
                 recentActivities
         );
+    }
+
+    private List<WeeklyActivityResponse> getWeeklyActivities(User user) {
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(6);
+        List<ActivityHistory> histories = activityHistoryRepository
+                .findByUserIdAndCreatedAtBetweenOrderByCreatedAtAsc(
+                        user.getId(),
+                        startDate.atStartOfDay(),
+                        today.plusDays(1).atStartOfDay()
+                );
+        Map<LocalDate, Long> countsByDate = histories.stream()
+                .collect(Collectors.groupingBy(
+                        history -> history.getCreatedAt().toLocalDate(),
+                        Collectors.counting()
+                ));
+
+        return LongStream.rangeClosed(0, 6)
+                .mapToObj(startDate::plusDays)
+                .map(date -> new WeeklyActivityResponse(date, countsByDate.getOrDefault(date, 0L)))
+                .toList();
     }
 
     private User getManagedUser(User user) {
