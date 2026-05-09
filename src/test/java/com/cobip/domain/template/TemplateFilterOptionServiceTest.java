@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 
 import com.cobip.domain.activity.ActivityHistoryService;
+import com.cobip.domain.learning.LearningProgressRepository;
 import com.cobip.domain.subscription.SubscriptionService;
 import com.cobip.domain.user.UserRepository;
 import com.cobip.infra.aws.S3Service;
@@ -26,6 +27,9 @@ class TemplateFilterOptionServiceTest {
     private TemplateFavoriteRepository templateFavoriteRepository;
 
     @Mock
+    private LearningProgressRepository learningProgressRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
@@ -44,6 +48,7 @@ class TemplateFilterOptionServiceTest {
         templateService = new TemplateService(
                 templateRepository,
                 templateFavoriteRepository,
+                learningProgressRepository,
                 userRepository,
                 subscriptionService,
                 activityHistoryService,
