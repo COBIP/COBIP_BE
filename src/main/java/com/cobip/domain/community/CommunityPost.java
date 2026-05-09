@@ -118,6 +118,16 @@ public class CommunityPost extends BaseTimeEntity {
         this.viewCount++;
     }
 
+    public void increaseCommentCount() {
+        this.commentCount++;
+    }
+
+    public void decreaseCommentCount() {
+        if (commentCount > 0) {
+            this.commentCount--;
+        }
+    }
+
     public void delete() {
         this.deletedAt = LocalDateTime.now();
     }
