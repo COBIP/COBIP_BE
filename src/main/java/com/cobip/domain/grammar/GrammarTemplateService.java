@@ -1,10 +1,13 @@
 package com.cobip.domain.grammar;
 
+import java.util.List;
 import java.util.Locale;
 
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateDetailResponse;
 import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
+import com.cobip.dto.grammar.GrammarTemplatePublicDetailResponse;
+import com.cobip.dto.grammar.GrammarTemplatePublicSummaryResponse;
 import com.cobip.dto.grammar.GrammarTemplateSummaryResponse;
 import com.cobip.dto.grammar.GrammarTemplateUpdateRequest;
 import com.cobip.global.common.PageResponse;
@@ -64,6 +67,36 @@ public class GrammarTemplateService {
                 .findAll(grammarTemplateSpec(keyword, language, category, difficulty, status), pageable)
                 .map(GrammarTemplateSummaryResponse::from);
         return PageResponse.from(templates);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getPublishedCategories(GrammarTemplateLanguage language) {
+        return grammarTemplateRepository.findDistinctCategories(GrammarTemplateStatus.PUBLISHED, language);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<GrammarTemplatePublicSummaryResponse> getPublishedGrammarTemplates(
+        String keyword,
+        GrammarTemplateLanguage language,
+        String category,
+        GrammarTemplateDifficulty difficulty,
+        Pageable pageable
+    ) {
+        Page<GrammarTemplatePublicSummaryResponse> templates = grammarTemplateRepository
+                .findAll(
+                        grammarTemplateSpec(keyword, language, category, difficulty, GrammarTemplateStatus.PUBLISHED),
+                        pageable
+                )
+                .map(GrammarTemplatePublicSummaryResponse::from);
+        return PageResponse.from(templates);
+    }
+
+    @Transactional(readOnly = true)
+    public GrammarTemplatePublicDetailResponse getPublishedGrammarTemplate(Long templateId) {
+        GrammarTemplate template = grammarTemplateRepository
+                .findByIdAndStatusAndDeletedAtIsNull(templateId, GrammarTemplateStatus.PUBLISHED)
+                .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_NOT_FOUND));
+        return GrammarTemplatePublicDetailResponse.from(template);
     }
 
     @Transactional(readOnly = true)
