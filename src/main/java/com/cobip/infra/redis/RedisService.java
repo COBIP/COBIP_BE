@@ -14,6 +14,8 @@ public class RedisService {
     private static final String REFRESH_TOKEN_PREFIX = "refresh-token:";
     private static final String EMAIL_VERIFICATION_CODE_PREFIX = "email-verification-code:";
     private static final String EMAIL_VERIFIED_PREFIX = "email-verified:";
+    private static final String PASSWORD_RESET_CODE_PREFIX = "password-reset-code:";
+    private static final String PASSWORD_RESET_VERIFIED_PREFIX = "password-reset-verified:";
 
     private final StringRedisTemplate stringRedisTemplate;
 
@@ -58,6 +60,33 @@ public class RedisService {
         stringRedisTemplate.delete(emailVerifiedKey(email));
     }
 
+    public void savePasswordResetCode(String email, String code, long expirationMillis) {
+        stringRedisTemplate.opsForValue()
+                .set(passwordResetCodeKey(email), code, Duration.ofMillis(expirationMillis));
+    }
+
+    public boolean matchesPasswordResetCode(String email, String code) {
+        String storedCode = stringRedisTemplate.opsForValue().get(passwordResetCodeKey(email));
+        return code.equals(storedCode);
+    }
+
+    public void deletePasswordResetCode(String email) {
+        stringRedisTemplate.delete(passwordResetCodeKey(email));
+    }
+
+    public void savePasswordResetVerifiedEmail(String email, long expirationMillis) {
+        stringRedisTemplate.opsForValue()
+                .set(passwordResetVerifiedKey(email), "true", Duration.ofMillis(expirationMillis));
+    }
+
+    public boolean isPasswordResetVerifiedEmail(String email) {
+        return Boolean.TRUE.equals(stringRedisTemplate.hasKey(passwordResetVerifiedKey(email)));
+    }
+
+    public void deletePasswordResetVerifiedEmail(String email) {
+        stringRedisTemplate.delete(passwordResetVerifiedKey(email));
+    }
+
     private String refreshTokenKey(Long userId) {
         return REFRESH_TOKEN_PREFIX + userId;
     }
@@ -68,5 +97,13 @@ public class RedisService {
 
     private String emailVerifiedKey(String email) {
         return EMAIL_VERIFIED_PREFIX + email;
+    }
+
+    private String passwordResetCodeKey(String email) {
+        return PASSWORD_RESET_CODE_PREFIX + email;
+    }
+
+    private String passwordResetVerifiedKey(String email) {
+        return PASSWORD_RESET_VERIFIED_PREFIX + email;
     }
 }

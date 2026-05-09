@@ -1,5 +1,6 @@
 package com.cobip.domain.activity;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -12,4 +13,10 @@ public interface ActivityHistoryRepository extends JpaRepository<ActivityHistory
     Page<ActivityHistory> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     List<ActivityHistory> findTop10ByUserIdOrderByCreatedAtDesc(Long userId);
+
+    List<ActivityHistory> findByUserIdAndCreatedAtBetweenOrderByCreatedAtAsc(
+            Long userId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
 }
