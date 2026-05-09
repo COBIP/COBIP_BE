@@ -50,6 +50,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/email-verifications/confirm"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/templates", "/api/v1/templates/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/coding-workbooks").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
