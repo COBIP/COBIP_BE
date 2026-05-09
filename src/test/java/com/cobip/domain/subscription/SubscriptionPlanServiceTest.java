@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 
 import com.cobip.dto.admin.SubscriptionPlanCreateRequest;
@@ -20,6 +21,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -85,6 +90,39 @@ class SubscriptionPlanServiceTest {
     }
 
     @Test
+    void getVisiblePlansReturnsOnlyPublicPlanResponses() {
+        when(subscriptionPlanRepository.findAll(anyPlanSpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(plan())));
+
+        var response = subscriptionPlanService.getVisiblePlans("pro", PageRequest.of(0, 20));
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst().getCode()).isEqualTo("PRO_MONTHLY");
+    }
+
+    @Test
+    void getVisiblePlanReturnsVisiblePlan() {
+        when(subscriptionPlanRepository.findByIdAndVisibleTrueAndDeletedAtIsNull(1L))
+                .thenReturn(Optional.of(plan()));
+
+        var response = subscriptionPlanService.getVisiblePlan(1L);
+
+        assertThat(response.getId()).isEqualTo(1L);
+        assertThat(response.getName()).isEqualTo("Pro Monthly");
+    }
+
+    @Test
+    void getVisiblePlanRejectsHiddenOrMissingPlan() {
+        when(subscriptionPlanRepository.findByIdAndVisibleTrueAndDeletedAtIsNull(1L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> subscriptionPlanService.getVisiblePlan(1L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND);
+    }
+
+    @Test
     void deletePlanSoftDeletesAndHidesPlan() {
         SubscriptionPlan plan = plan();
         when(subscriptionPlanRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(plan));
@@ -121,6 +159,10 @@ class SubscriptionPlanServiceTest {
         SubscriptionPlanVisibilityUpdateRequest request = new SubscriptionPlanVisibilityUpdateRequest();
         ReflectionTestUtils.setField(request, "visible", visible);
         return request;
+    }
+
+    private Specification<SubscriptionPlan> anyPlanSpecification() {
+        return any();
     }
 
     private SubscriptionPlan plan() {
