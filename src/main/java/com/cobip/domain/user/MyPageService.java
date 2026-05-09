@@ -2,7 +2,9 @@ package com.cobip.domain.user;
 
 import java.util.List;
 
+import com.cobip.domain.activity.ActivityHistory;
 import com.cobip.domain.activity.ActivityHistoryRepository;
+import com.cobip.domain.activity.ActivityType;
 import com.cobip.domain.learning.LearningProgress;
 import com.cobip.domain.learning.LearningProgressRepository;
 import com.cobip.domain.subscription.SubscriptionRepository;
@@ -17,6 +19,7 @@ import com.cobip.dto.template.TemplateSummaryResponse;
 import com.cobip.dto.user.MyProfileResponse;
 import com.cobip.dto.user.MyProfileUpdateRequest;
 import com.cobip.dto.user.PasswordChangeRequest;
+import com.cobip.dto.user.UserWithdrawalRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
@@ -66,6 +69,26 @@ public class MyPageService {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
         managedUser.changePassword(passwordEncoder.encode(request.getNewPassword()));
+    }
+
+    @Transactional
+    public void withdraw(User user, UserWithdrawalRequest request) {
+        User managedUser = getManagedUser(user);
+        if (!managedUser.isActiveAccount()) {
+            throw new CustomException(ErrorCode.ACCOUNT_DISABLED);
+        }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), managedUser.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        managedUser.changeStatus(UserStatus.DELETED);
+        activityHistoryRepository.save(ActivityHistory.builder()
+                .user(managedUser)
+                .type(ActivityType.USER_WITHDRAWN)
+                .message("회원 탈퇴: " + request.getReason().trim())
+                .targetType("USER")
+                .targetId(managedUser.getId())
+                .build());
     }
 
     @Transactional(readOnly = true)
