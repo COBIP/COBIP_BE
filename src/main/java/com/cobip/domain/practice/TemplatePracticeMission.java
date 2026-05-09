@@ -61,4 +61,20 @@ public class TemplatePracticeMission extends BaseTimeEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private JsonNode validationJson;
+
+    public void update(
+        String title,
+        String description,
+        TemplatePracticeMissionType missionType,
+        int orderIndex,
+        String guideContent,
+        JsonNode validationJson
+    ) {
+        this.title = title;
+        this.description = description;
+        this.missionType = missionType;
+        this.orderIndex = orderIndex;
+        this.guideContent = guideContent;
+        this.validationJson = validationJson;
+    }
 }
