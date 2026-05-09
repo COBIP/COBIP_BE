@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -50,6 +51,36 @@ class AuthControllerTest {
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    @Test
+    void checkEmailAvailabilityReturnsAvailabilityResponse() throws Exception {
+        when(userService.isEmailAvailable("user@example.com")).thenReturn(true);
+
+        mockMvc.perform(get("/api/v1/auth/email/availability")
+                        .param("email", "user@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.available").value(true));
+    }
+
+    @Test
+    void checkNicknameAvailabilityReturnsAvailabilityResponse() throws Exception {
+        when(userService.isNicknameAvailable("cobip")).thenReturn(false);
+
+        mockMvc.perform(get("/api/v1/auth/nickname/availability")
+                        .param("nickname", "cobip"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.available").value(false));
+    }
+
+    @Test
+    void checkEmailAvailabilityRejectsInvalidEmail() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/email/availability")
+                        .param("email", "invalid-email"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
 
     @Test
     void sendEmailVerificationReturnsSuccessResponse() throws Exception {
