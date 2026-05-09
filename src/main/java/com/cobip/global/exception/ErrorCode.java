@@ -15,6 +15,7 @@ public enum ErrorCode {
     TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "템플릿을 찾을 수 없습니다."),
     GRAMMAR_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "문법 템플릿을 찾을 수 없습니다."),
     COMMUNITY_POST_NOT_FOUND(HttpStatus.NOT_FOUND, "커뮤니티 게시글을 찾을 수 없습니다."),
+    COMMUNITY_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "커뮤니티 댓글을 찾을 수 없습니다."),
     SUBSCRIPTION_REQUIRED(HttpStatus.FORBIDDEN, "구독이 필요한 템플릿입니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 존재하는 이메일입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "이미 존재하는 닉네임입니다."),
