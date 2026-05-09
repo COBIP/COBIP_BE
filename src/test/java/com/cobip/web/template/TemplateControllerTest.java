@@ -13,6 +13,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+
 import com.cobip.domain.certificate.CertificateService;
 import com.cobip.domain.template.TemplateDifficulty;
 import com.cobip.domain.template.TemplateService;
@@ -69,14 +71,17 @@ class TemplateControllerTest {
     }
 
     @Test
-    void getRecommendedTemplatesReturnsPagedResponse() throws Exception {
-        when(templateService.getRecommendedTemplates(isNull(User.class), any(Pageable.class)))
-                .thenReturn(PageResponse.from(Page.empty()));
+    void filterOptionEndpointsReturnLists() throws Exception {
+        when(templateService.getCategories()).thenReturn(List.of("backend"));
+        when(templateService.getTechStacks()).thenReturn(List.of("Spring"));
 
-        mockMvc.perform(get("/api/v1/templates/recommended"))
+        mockMvc.perform(get("/api/v1/templates/categories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.content").isArray());
+                .andExpect(jsonPath("$.data[0]").value("backend"));
+
+        mockMvc.perform(get("/api/v1/templates/tech-stacks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0]").value("Spring"));
     }
 
     @Test

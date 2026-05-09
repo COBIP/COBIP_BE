@@ -1,5 +1,7 @@
 package com.cobip.web.template;
 
+import java.util.List;
+
 import com.cobip.domain.certificate.CertificateService;
 import com.cobip.domain.template.TemplateDifficulty;
 import com.cobip.domain.template.TemplateService;
@@ -50,12 +52,14 @@ public class TemplateController {
         return ResponseEntity.ok(ApiResponse.success(templateService.getTemplates(keyword, category, difficulty, pageable)));
     }
 
-    @GetMapping("/recommended")
-    public ResponseEntity<ApiResponse<PageResponse<TemplateSummaryResponse>>> getRecommendedTemplates(
-        @AuthenticationPrincipal User user,
-        @PageableDefault(size = 10) Pageable pageable
-    ) {
-        return ResponseEntity.ok(ApiResponse.success(templateService.getRecommendedTemplates(user, pageable)));
+    @GetMapping("/categories")
+    public ResponseEntity<ApiResponse<List<String>>> getCategories() {
+        return ResponseEntity.ok(ApiResponse.success(templateService.getCategories()));
+    }
+
+    @GetMapping("/tech-stacks")
+    public ResponseEntity<ApiResponse<List<String>>> getTechStacks() {
+        return ResponseEntity.ok(ApiResponse.success(templateService.getTechStacks()));
     }
 
     @GetMapping("/{templateId}")
