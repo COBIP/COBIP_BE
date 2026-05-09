@@ -59,7 +59,12 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(new AvailabilityResponse(userService.isNicknameAvailable(nickname))));
     }
 
-    @PostMapping("/email-verifications")
+    @PostMapping({
+        "/email-verifications",
+        "/email-verifications/",
+        "/email-verification",
+        "/email-verification/"
+    })
     public ResponseEntity<ApiResponse<Void>> sendEmailVerification(
         @RequestBody @Valid EmailVerificationSendRequest request
     ) {
@@ -67,7 +72,12 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("이메일 인증 코드가 발송되었습니다.", null));
     }
 
-    @PostMapping("/email-verifications/confirm")
+    @PostMapping({
+        "/email-verifications/confirm",
+        "/email-verifications/confirm/",
+        "/email-verification/confirm",
+        "/email-verification/confirm/"
+    })
     public ResponseEntity<ApiResponse<Void>> confirmEmailVerification(
         @RequestBody @Valid EmailVerificationConfirmRequest request
     ) {
@@ -75,7 +85,10 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("이메일 인증이 완료되었습니다.", null));
     }
 
-    @PostMapping("/password-reset/email-verifications")
+    @PostMapping({
+        "/password-reset/email-verifications",
+        "/password-reset/email-verifications/"
+    })
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetVerification(
         @RequestBody @Valid PasswordResetSendRequest request
     ) {
@@ -83,7 +96,10 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("비밀번호 재설정 인증 코드가 발송되었습니다.", null));
     }
 
-    @PostMapping("/password-reset/email-verifications/confirm")
+    @PostMapping({
+        "/password-reset/email-verifications/confirm",
+        "/password-reset/email-verifications/confirm/"
+    })
     public ResponseEntity<ApiResponse<Void>> confirmPasswordResetVerification(
         @RequestBody @Valid PasswordResetConfirmRequest request
     ) {

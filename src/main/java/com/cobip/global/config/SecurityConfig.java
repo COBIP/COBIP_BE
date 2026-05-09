@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                         .accessDeniedHandler(jwtAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers(
                                 "/swagger-ui.html",
@@ -56,9 +57,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/email/availability",
                                 "/api/v1/auth/nickname/availability",
                                 "/api/v1/auth/email-verifications",
-                                "/api/v1/auth/email-verifications/confirm",
+                                "/api/v1/auth/email-verifications/**",
+                                "/api/v1/auth/email-verification",
+                                "/api/v1/auth/email-verification/**",
                                 "/api/v1/auth/password-reset/email-verifications",
-                                "/api/v1/auth/password-reset/email-verifications/confirm",
+                                "/api/v1/auth/password-reset/email-verifications/**",
                                 "/api/v1/auth/password-reset"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/templates", "/api/v1/templates/*").permitAll()
