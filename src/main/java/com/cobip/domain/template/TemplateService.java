@@ -1,6 +1,7 @@
 package com.cobip.domain.template;
 
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -67,6 +68,18 @@ public class TemplateService {
     @Transactional(readOnly = true)
     public List<String> getTechStacks() {
         return templateRepository.findPublicTechStacks();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TemplateSummaryResponse> getRecommendedTemplates(User user, Pageable pageable) {
+        Set<String> categories = recommendationCategories(user);
+        Page<Template> templates = categories.isEmpty()
+                ? templateRepository.findByDeletedAtIsNullAndVisibilityOrderByFavoriteCountDescViewCountDesc(
+                        TemplateVisibility.PUBLIC,
+                        pageable
+                )
+                : templateRepository.findAll(recommendedTemplateSpec(categories), pageable);
+        return PageResponse.from(templates.map(TemplateSummaryResponse::from));
     }
 
     @Transactional
