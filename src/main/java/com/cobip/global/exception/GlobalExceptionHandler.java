@@ -2,6 +2,8 @@ package com.cobip.global.exception;
 
 import com.cobip.global.common.ApiResponse;
 
+import jakarta.validation.ConstraintViolationException;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -42,6 +44,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(ApiResponse.error(message));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(ConstraintViolationException e) {
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error("요청 파라미터가 올바르지 않습니다."));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

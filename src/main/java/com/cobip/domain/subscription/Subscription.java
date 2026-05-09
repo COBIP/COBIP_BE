@@ -52,7 +52,20 @@ public class Subscription extends BaseTimeEntity {
     private LocalDate nextPaymentAt;
 
     public boolean isActive() {
-        return status == SubscriptionStatus.ACTIVE
-                && (expiredAt == null || !expiredAt.isBefore(LocalDate.now()));
+        if (status == SubscriptionStatus.ACTIVE) {
+            return expiredAt == null || !expiredAt.isBefore(LocalDate.now());
+        }
+        return status == SubscriptionStatus.CANCELED
+                && expiredAt != null
+                && !expiredAt.isBefore(LocalDate.now());
+    }
+
+    public boolean canCancel() {
+        return status == SubscriptionStatus.ACTIVE && isActive();
+    }
+
+    public void cancelRenewal() {
+        this.status = SubscriptionStatus.CANCELED;
+        this.nextPaymentAt = null;
     }
 }

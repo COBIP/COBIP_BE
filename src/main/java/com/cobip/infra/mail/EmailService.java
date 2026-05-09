@@ -44,4 +44,25 @@ public class EmailService {
             throw new CustomException(ErrorCode.EMAIL_SEND_FAILED, e);
         }
     }
+
+    public void sendPasswordResetCode(String email, String code) {
+        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+        if (mailSender == null) {
+            throw new CustomException(ErrorCode.EMAIL_SEND_FAILED);
+        }
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        if (from != null && !from.isBlank()) {
+            message.setFrom(from);
+        }
+        message.setTo(email);
+        message.setSubject("COBIP 비밀번호 재설정 코드");
+        message.setText("COBIP 비밀번호 재설정 코드입니다.\n\n인증 코드: " + code + "\n\n5분 안에 입력해 주세요.");
+
+        try {
+            mailSender.send(message);
+        } catch (MailException e) {
+            throw new CustomException(ErrorCode.EMAIL_SEND_FAILED, e);
+        }
+    }
 }

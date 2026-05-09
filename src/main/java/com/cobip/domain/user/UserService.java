@@ -94,6 +94,16 @@ public class UserService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
+    @Transactional(readOnly = true)
+    public boolean isEmailAvailable(String email) {
+        return !userRepository.existsByEmail(email);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isNicknameAvailable(String nickname) {
+        return !userRepository.existsByNickname(nickname);
+    }
+
     private void validateSignupRequest(SignupRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
