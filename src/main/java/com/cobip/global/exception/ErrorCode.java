@@ -25,6 +25,7 @@ public enum ErrorCode {
     DUPLICATE_GRAMMAR_TEMPLATE_SLUG(HttpStatus.CONFLICT, "이미 존재하는 문법 템플릿 slug입니다."),
     DUPLICATE_SUBSCRIPTION_PLAN_CODE(HttpStatus.CONFLICT, "이미 존재하는 구독 플랜 코드입니다."),
     DUPLICATE_COMMUNITY_LIKE(HttpStatus.CONFLICT, "이미 좋아요한 대상입니다."),
+    DUPLICATE_COMMUNITY_POST_SAVE(HttpStatus.CONFLICT, "이미 저장한 커뮤니티 게시글입니다."),
     ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "계정이 활성 상태가 아닙니다."),
     EMAIL_VERIFICATION_REQUIRED(HttpStatus.BAD_REQUEST, "이메일 인증이 필요합니다."),
     EMAIL_VERIFICATION_FAILED(HttpStatus.BAD_REQUEST, "이메일 인증 코드가 올바르지 않거나 만료되었습니다."),
