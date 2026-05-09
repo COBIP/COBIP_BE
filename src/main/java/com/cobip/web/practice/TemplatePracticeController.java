@@ -7,6 +7,8 @@ import com.cobip.dto.practice.TemplatePracticeCodeRunRequest;
 import com.cobip.dto.practice.TemplatePracticeCodeRunResponse;
 import com.cobip.dto.practice.TemplatePracticeDetailResponse;
 import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
+import com.cobip.dto.practice.TemplatePracticeProjectExecutionRequest;
+import com.cobip.dto.practice.TemplatePracticeProjectRunResponse;
 import com.cobip.dto.practice.TemplatePracticeProgressResponse;
 import com.cobip.dto.practice.TemplatePracticeSubmissionRequest;
 import com.cobip.dto.practice.TemplatePracticeSubmissionResponse;
@@ -82,6 +84,30 @@ public class TemplatePracticeController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(
                 templatePracticeExecutionService.submitMission(user, templateId, missionId, request)
+        ));
+    }
+
+    @PostMapping("/missions/{missionId}/project/run")
+    public ResponseEntity<ApiResponse<TemplatePracticeProjectRunResponse>> runProjectMission(
+        @AuthenticationPrincipal User user,
+        @PathVariable Long templateId,
+        @PathVariable Long missionId,
+        @RequestBody @Valid TemplatePracticeProjectExecutionRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                templatePracticeExecutionService.runProjectMission(user, templateId, missionId, request)
+        ));
+    }
+
+    @PostMapping("/missions/{missionId}/project/submissions")
+    public ResponseEntity<ApiResponse<TemplatePracticeSubmissionResponse>> submitProjectMission(
+        @AuthenticationPrincipal User user,
+        @PathVariable Long templateId,
+        @PathVariable Long missionId,
+        @RequestBody @Valid TemplatePracticeProjectExecutionRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                templatePracticeExecutionService.submitProjectMission(user, templateId, missionId, request)
         ));
     }
 }

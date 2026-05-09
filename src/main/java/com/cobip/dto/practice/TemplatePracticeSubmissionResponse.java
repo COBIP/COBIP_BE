@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import com.cobip.domain.coding.CodeExecutionResult;
 import com.cobip.domain.coding.CodingLanguage;
+import com.cobip.domain.practice.ProjectExecutionResult;
 import com.cobip.domain.practice.TemplatePracticeSubmission;
 import com.cobip.domain.practice.TemplatePracticeSubmissionStatus;
 
@@ -28,20 +29,54 @@ public class TemplatePracticeSubmissionResponse {
     private final LocalDateTime createdAt;
 
     private TemplatePracticeSubmissionResponse(TemplatePracticeSubmission submission, CodeExecutionResult result) {
-        this.id = submission.getId();
-        this.templateId = submission.getTemplate().getId();
-        this.missionId = submission.getMission().getId();
-        this.language = submission.getLanguage();
-        this.status = submission.getStatus();
-        this.passedCount = submission.getPassedCount();
-        this.totalCount = submission.getTotalCount();
-        this.stdout = submission.getStdout();
-        this.stderr = submission.getStderr();
-        this.compileOutput = submission.getCompileOutput();
-        this.message = result == null ? null : result.message();
-        this.time = result == null ? null : result.time();
-        this.memory = result == null ? null : result.memory();
-        this.createdAt = submission.getCreatedAt();
+        this(
+                submission.getId(),
+                submission.getTemplate().getId(),
+                submission.getMission().getId(),
+                submission.getLanguage(),
+                submission.getStatus(),
+                submission.getPassedCount(),
+                submission.getTotalCount(),
+                submission.getStdout(),
+                submission.getStderr(),
+                submission.getCompileOutput(),
+                result == null ? null : result.message(),
+                result == null ? null : result.time(),
+                result == null ? null : result.memory(),
+                submission.getCreatedAt()
+        );
+    }
+
+    private TemplatePracticeSubmissionResponse(
+        Long id,
+        Long templateId,
+        Long missionId,
+        CodingLanguage language,
+        TemplatePracticeSubmissionStatus status,
+        int passedCount,
+        int totalCount,
+        String stdout,
+        String stderr,
+        String compileOutput,
+        String message,
+        String time,
+        Integer memory,
+        LocalDateTime createdAt
+    ) {
+        this.id = id;
+        this.templateId = templateId;
+        this.missionId = missionId;
+        this.language = language;
+        this.status = status;
+        this.passedCount = passedCount;
+        this.totalCount = totalCount;
+        this.stdout = stdout;
+        this.stderr = stderr;
+        this.compileOutput = compileOutput;
+        this.message = message;
+        this.time = time;
+        this.memory = memory;
+        this.createdAt = createdAt;
     }
 
     public static TemplatePracticeSubmissionResponse of(
@@ -49,5 +84,27 @@ public class TemplatePracticeSubmissionResponse {
         CodeExecutionResult result
     ) {
         return new TemplatePracticeSubmissionResponse(submission, result);
+    }
+
+    public static TemplatePracticeSubmissionResponse ofProject(
+        TemplatePracticeSubmission submission,
+        ProjectExecutionResult result
+    ) {
+        return new TemplatePracticeSubmissionResponse(
+                submission.getId(),
+                submission.getTemplate().getId(),
+                submission.getMission().getId(),
+                submission.getLanguage(),
+                submission.getStatus(),
+                submission.getPassedCount(),
+                submission.getTotalCount(),
+                submission.getStdout(),
+                submission.getStderr(),
+                submission.getCompileOutput(),
+                result.message(),
+                String.valueOf(result.durationMillis()),
+                null,
+                submission.getCreatedAt()
+        );
     }
 }

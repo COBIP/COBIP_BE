@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.cobip.domain.coding.CodeExecutionClient;
 import com.cobip.domain.coding.CodeExecutionResult;
+import com.cobip.domain.coding.CodingLanguage;
 import com.cobip.domain.coding.CodingSubmissionStatus;
 import com.cobip.domain.subscription.SubscriptionService;
 import com.cobip.domain.template.Template;
@@ -13,11 +14,15 @@ import com.cobip.domain.user.User;
 import com.cobip.domain.user.UserRepository;
 import com.cobip.dto.practice.TemplatePracticeCodeRunRequest;
 import com.cobip.dto.practice.TemplatePracticeCodeRunResponse;
+import com.cobip.dto.practice.TemplatePracticeProjectExecutionRequest;
+import com.cobip.dto.practice.TemplatePracticeProjectRunResponse;
 import com.cobip.dto.practice.TemplatePracticeSubmissionRequest;
 import com.cobip.dto.practice.TemplatePracticeSubmissionResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +35,8 @@ public class TemplatePracticeExecutionService {
 
     private static final int DEFAULT_TIME_LIMIT_MILLIS = 5000;
     private static final int DEFAULT_MEMORY_LIMIT_MB = 128;
+    private static final String DEFAULT_PROJECT_IMAGE = "gradle:8.14-jdk21";
+    private static final String DEFAULT_PROJECT_COMMAND = "gradle test --no-daemon";
 
     private final TemplateRepository templateRepository;
     private final TemplatePracticeMissionRepository missionRepository;
@@ -39,6 +46,8 @@ public class TemplatePracticeExecutionService {
     private final UserRepository userRepository;
     private final SubscriptionService subscriptionService;
     private final CodeExecutionClient codeExecutionClient;
+    private final ProjectExecutionClient projectExecutionClient;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public TemplatePracticeCodeRunResponse runMission(
@@ -118,6 +127,58 @@ public class TemplatePracticeExecutionService {
         return TemplatePracticeSubmissionResponse.of(submission, lastResult);
     }
 
+    @Transactional(readOnly = true)
+    public TemplatePracticeProjectRunResponse runProjectMission(
+        User user,
+        Long templateId,
+        Long missionId,
+        TemplatePracticeProjectExecutionRequest request
+    ) {
+        User managedUser = getManagedUser(user);
+        Template template = getReadableTemplate(managedUser, templateId);
+        TemplatePracticeMission mission = getMission(template.getId(), missionId);
+        ProjectExecutionResult result = projectExecutionClient.execute(projectRequest(
+                mission.getValidationJson(),
+                request,
+                "runCommand"
+        ));
+        return TemplatePracticeProjectRunResponse.from(result);
+    }
+
+    @Transactional
+    public TemplatePracticeSubmissionResponse submitProjectMission(
+        User user,
+        Long templateId,
+        Long missionId,
+        TemplatePracticeProjectExecutionRequest request
+    ) {
+        User managedUser = getManagedUser(user);
+        Template template = getReadableTemplate(managedUser, templateId);
+        TemplatePracticeMission mission = getMission(template.getId(), missionId);
+        ProjectExecutionResult result = projectExecutionClient.execute(projectRequest(
+                mission.getValidationJson(),
+                request,
+                "testCommand"
+        ));
+
+        TemplatePracticeSubmissionStatus finalStatus = result.status();
+        TemplatePracticeSubmission submission = submissionRepository.save(TemplatePracticeSubmission.builder()
+                .user(managedUser)
+                .template(template)
+                .mission(mission)
+                .language(projectLanguage(mission.getValidationJson()))
+                .sourceCode(projectSourcePayload(request))
+                .status(finalStatus)
+                .passedCount(finalStatus == TemplatePracticeSubmissionStatus.ACCEPTED ? 1 : 0)
+                .totalCount(1)
+                .stdout(result.stdout())
+                .stderr(result.stderr())
+                .build());
+
+        updateProgressAfterSubmission(managedUser, template, mission, finalStatus);
+        return TemplatePracticeSubmissionResponse.ofProject(submission, result);
+    }
+
     private void updateProgressAfterSubmission(
         User user,
         Template template,
@@ -170,6 +231,41 @@ public class TemplatePracticeExecutionService {
     private TemplatePracticeMission getMission(Long templateId, Long missionId) {
         return missionRepository.findByIdAndTemplateId(missionId, templateId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TEMPLATE_PRACTICE_MISSION_NOT_FOUND));
+    }
+
+    private ProjectExecutionRequest projectRequest(
+        JsonNode validationJson,
+        TemplatePracticeProjectExecutionRequest request,
+        String commandField
+    ) {
+        String command = textValue(validationJson, commandField, DEFAULT_PROJECT_COMMAND);
+        String dockerImage = textValue(validationJson, "dockerImage", DEFAULT_PROJECT_IMAGE);
+        return new ProjectExecutionRequest(
+                request.getFiles().stream()
+                        .map(file -> new ProjectExecutionFile(file.getFilePath(), file.getContent()))
+                        .toList(),
+                command,
+                dockerImage,
+                intValue(validationJson, "timeLimitMillis", DEFAULT_TIME_LIMIT_MILLIS),
+                intValue(validationJson, "memoryLimitMb", DEFAULT_MEMORY_LIMIT_MB)
+        );
+    }
+
+    private CodingLanguage projectLanguage(JsonNode validationJson) {
+        String language = textValue(validationJson, "language", CodingLanguage.JAVA.name());
+        try {
+            return CodingLanguage.valueOf(language);
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, e);
+        }
+    }
+
+    private String projectSourcePayload(TemplatePracticeProjectExecutionRequest request) {
+        try {
+            return objectMapper.writeValueAsString(request.getFiles());
+        } catch (JsonProcessingException e) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, e);
+        }
     }
 
     private User getManagedUser(User user) {
