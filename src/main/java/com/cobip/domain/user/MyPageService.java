@@ -1,10 +1,17 @@
 package com.cobip.domain.user;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
+import com.cobip.domain.activity.ActivityHistory;
 import com.cobip.domain.activity.ActivityHistoryRepository;
+import com.cobip.domain.activity.ActivityType;
 import com.cobip.domain.learning.LearningProgress;
 import com.cobip.domain.learning.LearningProgressRepository;
+import com.cobip.domain.subscription.Subscription;
 import com.cobip.domain.subscription.SubscriptionRepository;
 import com.cobip.domain.template.TemplateFavoriteRepository;
 import com.cobip.domain.template.TemplateRepository;
@@ -13,10 +20,12 @@ import com.cobip.dto.mypage.ActivityHistoryResponse;
 import com.cobip.dto.mypage.LearningProgressResponse;
 import com.cobip.dto.mypage.MyDashboardResponse;
 import com.cobip.dto.mypage.SubscriptionResponse;
+import com.cobip.dto.mypage.WeeklyActivityResponse;
 import com.cobip.dto.template.TemplateSummaryResponse;
 import com.cobip.dto.user.MyProfileResponse;
 import com.cobip.dto.user.MyProfileUpdateRequest;
 import com.cobip.dto.user.PasswordChangeRequest;
+import com.cobip.dto.user.UserWithdrawalRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
@@ -68,6 +77,26 @@ public class MyPageService {
         managedUser.changePassword(passwordEncoder.encode(request.getNewPassword()));
     }
 
+    @Transactional
+    public void withdraw(User user, UserWithdrawalRequest request) {
+        User managedUser = getManagedUser(user);
+        if (!managedUser.isActiveAccount()) {
+            throw new CustomException(ErrorCode.ACCOUNT_DISABLED);
+        }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), managedUser.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        managedUser.changeStatus(UserStatus.DELETED);
+        activityHistoryRepository.save(ActivityHistory.builder()
+                .user(managedUser)
+                .type(ActivityType.USER_WITHDRAWN)
+                .message("회원 탈퇴: " + request.getReason().trim())
+                .targetType("USER")
+                .targetId(managedUser.getId())
+                .build());
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<TemplateSummaryResponse> getMyTemplates(User user, Pageable pageable) {
         Page<TemplateSummaryResponse> templates = templateRepository.findByOwnerIdAndDeletedAtIsNull(user.getId(), pageable)
@@ -105,6 +134,19 @@ public class MyPageService {
                 .orElseGet(SubscriptionResponse::none);
     }
 
+    @Transactional
+    public SubscriptionResponse cancelSubscription(User user) {
+        Subscription subscription = subscriptionRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.SUBSCRIPTION_REQUIRED));
+
+        if (!subscription.canCancel()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        subscription.cancelRenewal();
+        return SubscriptionResponse.from(subscription);
+    }
+
     @Transactional(readOnly = true)
     public MyDashboardResponse getDashboard(User user) {
         List<LearningProgress> progresses = learningProgressRepository.findByUserId(user.getId());
@@ -123,6 +165,7 @@ public class MyPageService {
                 .stream()
                 .map(ActivityHistoryResponse::from)
                 .toList();
+        List<WeeklyActivityResponse> weeklyActivities = getWeeklyActivities(user);
         List<TemplateSummaryResponse> popularTemplates = templateRepository
                 .findByDeletedAtIsNullAndVisibilityOrderByFavoriteCountDescViewCountDesc(
                         TemplateVisibility.PUBLIC,
@@ -139,10 +182,33 @@ public class MyPageService {
                 totalStudySeconds,
                 averageCorrectRate,
                 getSubscription(user),
+                recentLearning.isEmpty() ? null : recentLearning.getFirst(),
+                weeklyActivities,
                 popularTemplates,
                 recentLearning,
                 recentActivities
         );
+    }
+
+    private List<WeeklyActivityResponse> getWeeklyActivities(User user) {
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(6);
+        List<ActivityHistory> histories = activityHistoryRepository
+                .findByUserIdAndCreatedAtBetweenOrderByCreatedAtAsc(
+                        user.getId(),
+                        startDate.atStartOfDay(),
+                        today.plusDays(1).atStartOfDay()
+                );
+        Map<LocalDate, Long> countsByDate = histories.stream()
+                .collect(Collectors.groupingBy(
+                        history -> history.getCreatedAt().toLocalDate(),
+                        Collectors.counting()
+                ));
+
+        return LongStream.rangeClosed(0, 6)
+                .mapToObj(startDate::plusDays)
+                .map(date -> new WeeklyActivityResponse(date, countsByDate.getOrDefault(date, 0L)))
+                .toList();
     }
 
     private User getManagedUser(User user) {

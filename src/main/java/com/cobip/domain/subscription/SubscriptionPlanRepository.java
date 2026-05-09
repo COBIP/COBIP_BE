@@ -10,6 +10,8 @@ public interface SubscriptionPlanRepository
 
     Optional<SubscriptionPlan> findByIdAndDeletedAtIsNull(Long id);
 
+    Optional<SubscriptionPlan> findByIdAndVisibleTrueAndDeletedAtIsNull(Long id);
+
     boolean existsByCodeAndDeletedAtIsNull(String code);
 
     boolean existsByCodeAndDeletedAtIsNullAndIdNot(String code, Long id);

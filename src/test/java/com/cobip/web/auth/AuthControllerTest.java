@@ -4,17 +4,22 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.cobip.domain.user.User;
 import com.cobip.domain.user.EmailVerificationService;
+import com.cobip.domain.user.PasswordResetService;
 import com.cobip.domain.user.UserService;
 import com.cobip.dto.auth.AuthResponse;
 import com.cobip.dto.auth.EmailVerificationConfirmRequest;
 import com.cobip.dto.auth.EmailVerificationSendRequest;
 import com.cobip.dto.auth.LoginRequest;
+import com.cobip.dto.auth.PasswordResetConfirmRequest;
+import com.cobip.dto.auth.PasswordResetRequest;
+import com.cobip.dto.auth.PasswordResetSendRequest;
 import com.cobip.dto.auth.RefreshTokenRequest;
 import com.cobip.dto.auth.SignupRequest;
 import com.cobip.global.security.JwtAuthenticationFilter;
@@ -46,10 +51,43 @@ class AuthControllerTest {
     private EmailVerificationService emailVerificationService;
 
     @MockitoBean
+    private PasswordResetService passwordResetService;
+
+    @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    @Test
+    void checkEmailAvailabilityReturnsAvailabilityResponse() throws Exception {
+        when(userService.isEmailAvailable("user@example.com")).thenReturn(true);
+
+        mockMvc.perform(get("/api/v1/auth/email/availability")
+                        .param("email", "user@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.available").value(true));
+    }
+
+    @Test
+    void checkNicknameAvailabilityReturnsAvailabilityResponse() throws Exception {
+        when(userService.isNicknameAvailable("cobip")).thenReturn(false);
+
+        mockMvc.perform(get("/api/v1/auth/nickname/availability")
+                        .param("nickname", "cobip"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.available").value(false));
+    }
+
+    @Test
+    void checkEmailAvailabilityRejectsInvalidEmail() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/email/availability")
+                        .param("email", "invalid-email"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
 
     @Test
     void sendEmailVerificationReturnsSuccessResponse() throws Exception {
@@ -82,6 +120,54 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("이메일 인증이 완료되었습니다."));
+    }
+
+    @Test
+    void sendPasswordResetVerificationReturnsSuccessResponse() throws Exception {
+        doNothing().when(passwordResetService).sendCode(any(PasswordResetSendRequest.class));
+
+        mockMvc.perform(post("/api/v1/auth/password-reset/email-verifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "user@example.com"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void confirmPasswordResetVerificationReturnsSuccessResponse() throws Exception {
+        doNothing().when(passwordResetService).confirmCode(any(PasswordResetConfirmRequest.class));
+
+        mockMvc.perform(post("/api/v1/auth/password-reset/email-verifications/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "user@example.com",
+                              "code": "123456"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void resetPasswordReturnsSuccessResponse() throws Exception {
+        doNothing().when(passwordResetService).resetPassword(any(PasswordResetRequest.class));
+
+        mockMvc.perform(post("/api/v1/auth/password-reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "user@example.com",
+                              "password": "Password1!",
+                              "confirmPassword": "Password1!"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test

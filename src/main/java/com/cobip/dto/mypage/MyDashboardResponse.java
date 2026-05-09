@@ -15,6 +15,8 @@ public class MyDashboardResponse {
     private final long totalStudySeconds;
     private final double averageCorrectRate;
     private final SubscriptionResponse subscription;
+    private final LearningProgressResponse continueLearning;
+    private final List<WeeklyActivityResponse> weeklyActivities;
     private final List<TemplateSummaryResponse> popularTemplates;
     private final List<LearningProgressResponse> recentLearning;
     private final List<ActivityHistoryResponse> recentActivities;
@@ -26,6 +28,8 @@ public class MyDashboardResponse {
         long totalStudySeconds,
         double averageCorrectRate,
         SubscriptionResponse subscription,
+        LearningProgressResponse continueLearning,
+        List<WeeklyActivityResponse> weeklyActivities,
         List<TemplateSummaryResponse> popularTemplates,
         List<LearningProgressResponse> recentLearning,
         List<ActivityHistoryResponse> recentActivities
@@ -36,6 +40,8 @@ public class MyDashboardResponse {
         this.totalStudySeconds = totalStudySeconds;
         this.averageCorrectRate = averageCorrectRate;
         this.subscription = subscription;
+        this.continueLearning = continueLearning;
+        this.weeklyActivities = weeklyActivities;
         this.popularTemplates = popularTemplates;
         this.recentLearning = recentLearning;
         this.recentActivities = recentActivities;
