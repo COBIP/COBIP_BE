@@ -50,4 +50,18 @@ public class TemplatePracticeFile extends BaseTimeEntity {
 
     @Column(nullable = false)
     private int orderIndex;
+
+    public void update(
+        String filePath,
+        String language,
+        String content,
+        boolean readOnly,
+        int orderIndex
+    ) {
+        this.filePath = filePath;
+        this.language = language;
+        this.content = content;
+        this.readOnly = readOnly;
+        this.orderIndex = orderIndex;
+    }
 }
