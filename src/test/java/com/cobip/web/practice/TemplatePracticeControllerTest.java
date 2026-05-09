@@ -10,9 +10,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.cobip.domain.practice.TemplatePracticeExecutionService;
 import com.cobip.domain.practice.TemplatePracticeService;
+import com.cobip.dto.practice.TemplatePracticeCodeRunRequest;
 import com.cobip.domain.user.User;
 import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
+import com.cobip.dto.practice.TemplatePracticeProjectExecutionRequest;
+import com.cobip.dto.practice.TemplatePracticeSubmissionRequest;
 import com.cobip.global.security.JwtAuthenticationFilter;
 
 import org.junit.jupiter.api.Test;
@@ -33,6 +37,9 @@ class TemplatePracticeControllerTest {
 
     @MockitoBean
     private TemplatePracticeService templatePracticeService;
+
+    @MockitoBean
+    private TemplatePracticeExecutionService templatePracticeExecutionService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -76,5 +83,97 @@ class TemplatePracticeControllerTest {
                             """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void runMissionAcceptsCodeRunRequest() throws Exception {
+        when(templatePracticeExecutionService.runMission(
+                isNull(User.class),
+                eq(1L),
+                eq(2L),
+                any(TemplatePracticeCodeRunRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/templates/1/practice/missions/2/run")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "language": "JAVA",
+                              "sourceCode": "class Main { public static void main(String[] args) {} }",
+                              "input": ""
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void submitMissionAcceptsSubmissionRequest() throws Exception {
+        when(templatePracticeExecutionService.submitMission(
+                isNull(User.class),
+                eq(1L),
+                eq(2L),
+                any(TemplatePracticeSubmissionRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/templates/1/practice/missions/2/submissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "language": "JAVA",
+                              "sourceCode": "class Main { public static void main(String[] args) {} }"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void runProjectMissionAcceptsProjectFiles() throws Exception {
+        when(templatePracticeExecutionService.runProjectMission(
+                isNull(User.class),
+                eq(1L),
+                eq(2L),
+                any(TemplatePracticeProjectExecutionRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/templates/1/practice/missions/2/project/run")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(projectFilesJson()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void submitProjectMissionAcceptsProjectFiles() throws Exception {
+        when(templatePracticeExecutionService.submitProjectMission(
+                isNull(User.class),
+                eq(1L),
+                eq(2L),
+                any(TemplatePracticeProjectExecutionRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/templates/1/practice/missions/2/project/submissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(projectFilesJson()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    private String projectFilesJson() {
+        return """
+            {
+              "files": [
+                {
+                  "filePath": "build.gradle",
+                  "content": "plugins { id 'java' }"
+                },
+                {
+                  "filePath": "src/main/java/com/example/AuthController.java",
+                  "content": "class AuthController {}"
+                }
+              ]
+            }
+            """;
     }
 }
