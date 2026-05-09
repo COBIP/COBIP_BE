@@ -1,14 +1,16 @@
 package com.cobip.web.auth;
 
-import com.cobip.domain.user.User;
 import com.cobip.domain.user.EmailVerificationService;
+import com.cobip.domain.oauth.OAuthAuthService;
 import com.cobip.domain.user.PasswordResetService;
+import com.cobip.domain.user.User;
 import com.cobip.domain.user.UserService;
 import com.cobip.dto.auth.AuthResponse;
 import com.cobip.dto.auth.AvailabilityResponse;
 import com.cobip.dto.auth.EmailVerificationConfirmRequest;
 import com.cobip.dto.auth.EmailVerificationSendRequest;
 import com.cobip.dto.auth.LoginRequest;
+import com.cobip.dto.auth.OAuthLoginRequest;
 import com.cobip.dto.auth.PasswordResetConfirmRequest;
 import com.cobip.dto.auth.PasswordResetRequest;
 import com.cobip.dto.auth.PasswordResetSendRequest;
@@ -41,6 +43,7 @@ public class AuthController {
     private final UserService userService;
     private final EmailVerificationService emailVerificationService;
     private final PasswordResetService passwordResetService;
+    private final OAuthAuthService oAuthAuthService;
 
     @GetMapping("/email/availability")
     public ResponseEntity<ApiResponse<AvailabilityResponse>> checkEmailAvailability(
@@ -102,6 +105,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@RequestBody @Valid LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success("로그인되었습니다.", userService.login(request)));
+    }
+
+    @PostMapping("/oauth/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> oauthLogin(@RequestBody @Valid OAuthLoginRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("소셜 로그인되었습니다.", oAuthAuthService.login(request)));
     }
 
     @PostMapping("/reissue")
