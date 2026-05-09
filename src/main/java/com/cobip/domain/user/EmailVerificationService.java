@@ -38,6 +38,7 @@ public class EmailVerificationService {
         }
 
         String code = createCode();
+        redisService.deleteVerifiedEmail(email);
         redisService.saveEmailVerificationCode(email, code, codeExpirationMillis);
         emailService.sendVerificationCode(email, code);
     }
