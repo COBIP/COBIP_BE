@@ -15,6 +15,7 @@ import com.cobip.domain.practice.TemplatePracticeService;
 import com.cobip.dto.practice.TemplatePracticeCodeRunRequest;
 import com.cobip.domain.user.User;
 import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
+import com.cobip.dto.practice.TemplatePracticeProjectExecutionRequest;
 import com.cobip.dto.practice.TemplatePracticeSubmissionRequest;
 import com.cobip.global.security.JwtAuthenticationFilter;
 
@@ -125,5 +126,54 @@ class TemplatePracticeControllerTest {
                             """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void runProjectMissionAcceptsProjectFiles() throws Exception {
+        when(templatePracticeExecutionService.runProjectMission(
+                isNull(User.class),
+                eq(1L),
+                eq(2L),
+                any(TemplatePracticeProjectExecutionRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/templates/1/practice/missions/2/project/run")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(projectFilesJson()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void submitProjectMissionAcceptsProjectFiles() throws Exception {
+        when(templatePracticeExecutionService.submitProjectMission(
+                isNull(User.class),
+                eq(1L),
+                eq(2L),
+                any(TemplatePracticeProjectExecutionRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/templates/1/practice/missions/2/project/submissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(projectFilesJson()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    private String projectFilesJson() {
+        return """
+            {
+              "files": [
+                {
+                  "filePath": "build.gradle",
+                  "content": "plugins { id 'java' }"
+                },
+                {
+                  "filePath": "src/main/java/com/example/AuthController.java",
+                  "content": "class AuthController {}"
+                }
+              ]
+            }
+            """;
     }
 }
