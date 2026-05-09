@@ -55,7 +55,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/password-reset"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/templates", "/api/v1/templates/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/subscription-plans", "/api/v1/subscription-plans/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/community/posts", "/api/v1/community/posts/*").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
