@@ -7,6 +7,7 @@ import com.cobip.dto.admin.SubscriptionPlanCreateRequest;
 import com.cobip.dto.admin.SubscriptionPlanResponse;
 import com.cobip.dto.admin.SubscriptionPlanUpdateRequest;
 import com.cobip.dto.admin.SubscriptionPlanVisibilityUpdateRequest;
+import com.cobip.dto.subscription.SubscriptionPlanPublicResponse;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
@@ -38,6 +39,21 @@ public class SubscriptionPlanService {
                 planSpec(keyword, visible),
                 pageable
         ).map(SubscriptionPlanResponse::from));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<SubscriptionPlanPublicResponse> getVisiblePlans(String keyword, Pageable pageable) {
+        return PageResponse.from(subscriptionPlanRepository.findAll(
+                planSpec(keyword, true),
+                pageable
+        ).map(SubscriptionPlanPublicResponse::from));
+    }
+
+    @Transactional(readOnly = true)
+    public SubscriptionPlanPublicResponse getVisiblePlan(Long planId) {
+        return SubscriptionPlanPublicResponse.from(subscriptionPlanRepository
+                .findByIdAndVisibleTrueAndDeletedAtIsNull(planId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND)));
     }
 
     @Transactional(readOnly = true)
