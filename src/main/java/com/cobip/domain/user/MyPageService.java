@@ -5,6 +5,7 @@ import java.util.List;
 import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.learning.LearningProgress;
 import com.cobip.domain.learning.LearningProgressRepository;
+import com.cobip.domain.subscription.Subscription;
 import com.cobip.domain.subscription.SubscriptionRepository;
 import com.cobip.domain.template.TemplateFavoriteRepository;
 import com.cobip.domain.template.TemplateRepository;
@@ -103,6 +104,19 @@ public class MyPageService {
         return subscriptionRepository.findByUserId(user.getId())
                 .map(SubscriptionResponse::from)
                 .orElseGet(SubscriptionResponse::none);
+    }
+
+    @Transactional
+    public SubscriptionResponse cancelSubscription(User user) {
+        Subscription subscription = subscriptionRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.SUBSCRIPTION_REQUIRED));
+
+        if (!subscription.canCancel()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        subscription.cancelRenewal();
+        return SubscriptionResponse.from(subscription);
     }
 
     @Transactional(readOnly = true)

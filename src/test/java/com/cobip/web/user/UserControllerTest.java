@@ -123,6 +123,15 @@ class UserControllerTest {
     }
 
     @Test
+    void cancelSubscriptionAcceptsPatchRequest() throws Exception {
+        when(myPageService.cancelSubscription(isNull(User.class))).thenReturn(null);
+
+        mockMvc.perform(patch("/api/v1/users/me/subscription/cancel"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
     void dashboardEndpointReturnsSuccessEnvelope() throws Exception {
         when(myPageService.getDashboard(isNull(User.class))).thenReturn(null);
 

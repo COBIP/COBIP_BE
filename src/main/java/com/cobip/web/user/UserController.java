@@ -95,6 +95,11 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(myPageService.getSubscription(user)));
     }
 
+    @PatchMapping("/subscription/cancel")
+    public ResponseEntity<ApiResponse<SubscriptionResponse>> cancelSubscription(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(ApiResponse.success("구독 해지가 신청되었습니다.", myPageService.cancelSubscription(user)));
+    }
+
     @GetMapping("/dashboard")
     public ResponseEntity<ApiResponse<MyDashboardResponse>> getDashboard(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(ApiResponse.success(myPageService.getDashboard(user)));
