@@ -1,10 +1,15 @@
 package com.cobip.web.practice;
 
+import com.cobip.domain.practice.TemplatePracticeExecutionService;
 import com.cobip.domain.practice.TemplatePracticeService;
 import com.cobip.domain.user.User;
+import com.cobip.dto.practice.TemplatePracticeCodeRunRequest;
+import com.cobip.dto.practice.TemplatePracticeCodeRunResponse;
 import com.cobip.dto.practice.TemplatePracticeDetailResponse;
 import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
 import com.cobip.dto.practice.TemplatePracticeProgressResponse;
+import com.cobip.dto.practice.TemplatePracticeSubmissionRequest;
+import com.cobip.dto.practice.TemplatePracticeSubmissionResponse;
 import com.cobip.global.common.ApiResponse;
 
 import jakarta.validation.Valid;
@@ -26,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TemplatePracticeController {
 
     private final TemplatePracticeService templatePracticeService;
+    private final TemplatePracticeExecutionService templatePracticeExecutionService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<TemplatePracticeDetailResponse>> getPractice(
@@ -52,6 +58,30 @@ public class TemplatePracticeController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(
                 templatePracticeService.updateMissionProgress(user, templateId, missionId, request)
+        ));
+    }
+
+    @PostMapping("/missions/{missionId}/run")
+    public ResponseEntity<ApiResponse<TemplatePracticeCodeRunResponse>> runMission(
+        @AuthenticationPrincipal User user,
+        @PathVariable Long templateId,
+        @PathVariable Long missionId,
+        @RequestBody @Valid TemplatePracticeCodeRunRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                templatePracticeExecutionService.runMission(user, templateId, missionId, request)
+        ));
+    }
+
+    @PostMapping("/missions/{missionId}/submissions")
+    public ResponseEntity<ApiResponse<TemplatePracticeSubmissionResponse>> submitMission(
+        @AuthenticationPrincipal User user,
+        @PathVariable Long templateId,
+        @PathVariable Long missionId,
+        @RequestBody @Valid TemplatePracticeSubmissionRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                templatePracticeExecutionService.submitMission(user, templateId, missionId, request)
         ));
     }
 }
