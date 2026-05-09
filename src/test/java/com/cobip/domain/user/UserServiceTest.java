@@ -1,5 +1,6 @@
 package com.cobip.domain.user;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
@@ -78,6 +79,20 @@ class UserServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.ACCOUNT_DISABLED);
+    }
+
+    @Test
+    void isEmailAvailableReturnsFalseWhenEmailExists() {
+        when(userRepository.existsByEmail("user@example.com")).thenReturn(true);
+
+        assertThat(userService.isEmailAvailable("user@example.com")).isFalse();
+    }
+
+    @Test
+    void isNicknameAvailableReturnsTrueWhenNicknameDoesNotExist() {
+        when(userRepository.existsByNickname("cobip")).thenReturn(false);
+
+        assertThat(userService.isNicknameAvailable("cobip")).isTrue();
     }
 
     private User user(UserStatus status) {

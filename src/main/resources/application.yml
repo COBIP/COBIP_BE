@@ -62,3 +62,6 @@ app:
     email-verification:
       code-expiration-millis: ${EMAIL_VERIFICATION_CODE_EXPIRATION:300000}
       verified-expiration-millis: ${EMAIL_VERIFICATION_VERIFIED_EXPIRATION:1800000}
+    password-reset:
+      code-expiration-millis: ${PASSWORD_RESET_CODE_EXPIRATION:300000}
+      verified-expiration-millis: ${PASSWORD_RESET_VERIFIED_EXPIRATION:1800000}

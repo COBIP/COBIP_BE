@@ -12,6 +12,7 @@ import com.cobip.dto.template.TemplateSummaryResponse;
 import com.cobip.dto.user.MyProfileResponse;
 import com.cobip.dto.user.MyProfileUpdateRequest;
 import com.cobip.dto.user.PasswordChangeRequest;
+import com.cobip.dto.user.UserWithdrawalRequest;
 import com.cobip.global.common.ApiResponse;
 import com.cobip.global.common.PageResponse;
 
@@ -22,6 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -56,6 +58,15 @@ public class UserController {
     ) {
         myPageService.changePassword(user, request);
         return ResponseEntity.ok(ApiResponse.success("비밀번호가 변경되었습니다.", null));
+    }
+
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> withdraw(
+        @AuthenticationPrincipal User user,
+        @RequestBody @Valid UserWithdrawalRequest request
+    ) {
+        myPageService.withdraw(user, request);
+        return ResponseEntity.ok(ApiResponse.success("회원 탈퇴가 완료되었습니다.", null));
     }
 
     @GetMapping("/templates")
@@ -93,6 +104,11 @@ public class UserController {
     @GetMapping("/subscription")
     public ResponseEntity<ApiResponse<SubscriptionResponse>> getSubscription(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(ApiResponse.success(myPageService.getSubscription(user)));
+    }
+
+    @PatchMapping("/subscription/cancel")
+    public ResponseEntity<ApiResponse<SubscriptionResponse>> cancelSubscription(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(ApiResponse.success("구독 해지가 신청되었습니다.", myPageService.cancelSubscription(user)));
     }
 
     @GetMapping("/dashboard")
