@@ -4,8 +4,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -15,6 +17,8 @@ import com.cobip.domain.template.TemplateDifficulty;
 import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.domain.user.User;
 import com.cobip.dto.admin.AdminTemplateExposureUpdateRequest;
+import com.cobip.dto.template.TemplateCreateRequest;
+import com.cobip.dto.template.TemplateUpdateRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.security.JwtAuthenticationFilter;
 
@@ -79,6 +83,44 @@ class AdminTemplateControllerTest {
     }
 
     @Test
+    void createTemplateAcceptsPostRequest() throws Exception {
+        when(adminTemplateService.createTemplate(any(TemplateCreateRequest.class), isNull(User.class)))
+                .thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/admin/templates")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "title": "JWT Login",
+                              "description": "Build JWT login.",
+                              "category": "backend",
+                              "difficulty": "BEGINNER",
+                              "techStacks": ["Spring"],
+                              "visibility": "PUBLIC",
+                              "accessLevel": "FREE"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void updateTemplateAcceptsPatchRequest() throws Exception {
+        when(adminTemplateService.updateTemplate(eq(1L), any(TemplateUpdateRequest.class), isNull(User.class)))
+                .thenReturn(null);
+
+        mockMvc.perform(patch("/api/v1/admin/templates/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "title": "Updated JWT Login"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
     void updateExposureAcceptsPatchRequest() throws Exception {
         when(adminTemplateService.updateExposure(
                 eq(1L),
@@ -109,5 +151,12 @@ class AdminTemplateControllerTest {
                             """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void deleteTemplateAcceptsDeleteRequest() throws Exception {
+        mockMvc.perform(delete("/api/v1/admin/templates/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 }

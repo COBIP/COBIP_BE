@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.cobip.domain.user.User;
+import com.cobip.domain.user.UserRole;
 import com.cobip.domain.user.EmailVerificationService;
 import com.cobip.domain.oauth.OAuthAuthService;
 import com.cobip.domain.user.PasswordResetService;
@@ -178,7 +179,7 @@ class AuthControllerTest {
     @Test
     void signupReturnsTokenResponse() throws Exception {
         when(userService.signup(any(SignupRequest.class)))
-                .thenReturn(new AuthResponse("access-token", "refresh-token"));
+                .thenReturn(new AuthResponse("access-token", "refresh-token", UserRole.USER));
 
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -194,7 +195,8 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.data.refreshToken").value("refresh-token"))
-                .andExpect(jsonPath("$.data.tokenType").value("Bearer"));
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.role").value("USER"));
     }
 
     @Test

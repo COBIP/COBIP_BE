@@ -4,7 +4,9 @@ import com.cobip.domain.user.AdminUserService;
 import com.cobip.domain.user.User;
 import com.cobip.domain.user.UserRole;
 import com.cobip.domain.user.UserStatus;
+import com.cobip.dto.admin.AdminUserCreateRequest;
 import com.cobip.dto.admin.AdminUserDetailResponse;
+import com.cobip.dto.admin.AdminUserRoleUpdateRequest;
 import com.cobip.dto.admin.AdminUserStatusUpdateRequest;
 import com.cobip.dto.admin.AdminUserSummaryResponse;
 import com.cobip.global.common.ApiResponse;
@@ -21,6 +23,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -51,6 +54,17 @@ public class AdminUserController {
         return ResponseEntity.ok(ApiResponse.success(adminUserService.getUser(userId)));
     }
 
+    @PostMapping("/admins")
+    public ResponseEntity<ApiResponse<AdminUserDetailResponse>> createAdmin(
+        @RequestBody @Valid AdminUserCreateRequest request,
+        @AuthenticationPrincipal User adminUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Admin account created.",
+                adminUserService.createAdmin(request, adminUser)
+        ));
+    }
+
     @PatchMapping("/{userId}/status")
     public ResponseEntity<ApiResponse<AdminUserDetailResponse>> changeStatus(
         @PathVariable Long userId,
@@ -60,6 +74,18 @@ public class AdminUserController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Admin user status updated.",
                 adminUserService.changeStatus(userId, request, adminUser)
+        ));
+    }
+
+    @PatchMapping("/{userId}/role")
+    public ResponseEntity<ApiResponse<AdminUserDetailResponse>> changeRole(
+        @PathVariable Long userId,
+        @RequestBody @Valid AdminUserRoleUpdateRequest request,
+        @AuthenticationPrincipal User adminUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Admin user role updated.",
+                adminUserService.changeRole(userId, request, adminUser)
         ));
     }
 }

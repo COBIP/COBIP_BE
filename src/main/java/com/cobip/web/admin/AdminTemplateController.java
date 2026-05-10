@@ -8,6 +8,8 @@ import com.cobip.domain.user.User;
 import com.cobip.dto.admin.AdminTemplateDetailResponse;
 import com.cobip.dto.admin.AdminTemplateExposureUpdateRequest;
 import com.cobip.dto.admin.AdminTemplateSummaryResponse;
+import com.cobip.dto.template.TemplateCreateRequest;
+import com.cobip.dto.template.TemplateUpdateRequest;
 import com.cobip.global.common.ApiResponse;
 import com.cobip.global.common.PageResponse;
 
@@ -19,9 +21,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -54,6 +58,29 @@ public class AdminTemplateController {
         return ResponseEntity.ok(ApiResponse.success(adminTemplateService.getTemplate(templateId)));
     }
 
+    @PostMapping
+    public ResponseEntity<ApiResponse<AdminTemplateDetailResponse>> createTemplate(
+        @RequestBody @Valid TemplateCreateRequest request,
+        @AuthenticationPrincipal User adminUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Admin template created.",
+                adminTemplateService.createTemplate(request, adminUser)
+        ));
+    }
+
+    @PatchMapping("/{templateId}")
+    public ResponseEntity<ApiResponse<AdminTemplateDetailResponse>> updateTemplate(
+        @PathVariable Long templateId,
+        @RequestBody @Valid TemplateUpdateRequest request,
+        @AuthenticationPrincipal User adminUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Admin template updated.",
+                adminTemplateService.updateTemplate(templateId, request, adminUser)
+        ));
+    }
+
     @PatchMapping("/{templateId}/exposure")
     public ResponseEntity<ApiResponse<AdminTemplateDetailResponse>> updateExposure(
         @PathVariable Long templateId,
@@ -64,5 +91,14 @@ public class AdminTemplateController {
                 "Admin template exposure updated.",
                 adminTemplateService.updateExposure(templateId, request, adminUser)
         ));
+    }
+
+    @DeleteMapping("/{templateId}")
+    public ResponseEntity<ApiResponse<Void>> deleteTemplate(
+        @PathVariable Long templateId,
+        @AuthenticationPrincipal User adminUser
+    ) {
+        adminTemplateService.deleteTemplate(templateId, adminUser);
+        return ResponseEntity.ok(ApiResponse.success("Admin template deleted.", null));
     }
 }

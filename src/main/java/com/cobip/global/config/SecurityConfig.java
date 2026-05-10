@@ -65,6 +65,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/password-reset"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/templates", "/api/v1/templates/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/coding-workbooks").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/community/posts", "/api/v1/community/posts/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/community/posts/*/comments").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/community/comments/*/replies").permitAll()

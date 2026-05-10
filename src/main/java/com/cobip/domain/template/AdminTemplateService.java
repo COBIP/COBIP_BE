@@ -10,6 +10,8 @@ import com.cobip.domain.user.User;
 import com.cobip.dto.admin.AdminTemplateDetailResponse;
 import com.cobip.dto.admin.AdminTemplateExposureUpdateRequest;
 import com.cobip.dto.admin.AdminTemplateSummaryResponse;
+import com.cobip.dto.template.TemplateCreateRequest;
+import com.cobip.dto.template.TemplateUpdateRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
@@ -53,6 +55,45 @@ public class AdminTemplateService {
     }
 
     @Transactional
+    public AdminTemplateDetailResponse createTemplate(TemplateCreateRequest request, User adminUser) {
+        Template template = templateRepository.save(Template.create(adminUser, request));
+
+        if (adminUser != null) {
+            activityHistoryService.record(
+                    adminUser,
+                    ActivityType.TEMPLATE_CREATED,
+                    "Admin created template.",
+                    "TEMPLATE",
+                    template.getId()
+            );
+        }
+
+        return AdminTemplateDetailResponse.from(template);
+    }
+
+    @Transactional
+    public AdminTemplateDetailResponse updateTemplate(
+        Long templateId,
+        TemplateUpdateRequest request,
+        User adminUser
+    ) {
+        Template template = findActiveTemplate(templateId);
+        template.update(request);
+
+        if (adminUser != null) {
+            activityHistoryService.record(
+                    adminUser,
+                    ActivityType.TEMPLATE_UPDATED,
+                    "Admin updated template.",
+                    "TEMPLATE",
+                    template.getId()
+            );
+        }
+
+        return AdminTemplateDetailResponse.from(template);
+    }
+
+    @Transactional
     public AdminTemplateDetailResponse updateExposure(
         Long templateId,
         AdminTemplateExposureUpdateRequest request,
@@ -72,6 +113,22 @@ public class AdminTemplateService {
         }
 
         return AdminTemplateDetailResponse.from(template);
+    }
+
+    @Transactional
+    public void deleteTemplate(Long templateId, User adminUser) {
+        Template template = findActiveTemplate(templateId);
+        template.delete();
+
+        if (adminUser != null) {
+            activityHistoryService.record(
+                    adminUser,
+                    ActivityType.TEMPLATE_DELETED,
+                    "Admin deleted template.",
+                    "TEMPLATE",
+                    template.getId()
+            );
+        }
     }
 
     private Template findActiveTemplate(Long templateId) {

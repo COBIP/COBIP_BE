@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,7 +14,9 @@ import com.cobip.domain.user.AdminUserService;
 import com.cobip.domain.user.User;
 import com.cobip.domain.user.UserRole;
 import com.cobip.domain.user.UserStatus;
+import com.cobip.dto.admin.AdminUserCreateRequest;
 import com.cobip.dto.admin.AdminUserStatusUpdateRequest;
+import com.cobip.dto.admin.AdminUserRoleUpdateRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.security.JwtAuthenticationFilter;
 
@@ -74,6 +77,24 @@ class AdminUserControllerTest {
     }
 
     @Test
+    void createAdminAcceptsPostRequest() throws Exception {
+        when(adminUserService.createAdmin(any(AdminUserCreateRequest.class), isNull(User.class)))
+                .thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/admin/users/admins")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "admin@example.com",
+                              "password": "Password1!",
+                              "nickname": "admin"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
     void changeStatusAcceptsPatchRequest() throws Exception {
         when(adminUserService.changeStatus(eq(1L), any(AdminUserStatusUpdateRequest.class), isNull(User.class)))
                 .thenReturn(null);
@@ -83,6 +104,22 @@ class AdminUserControllerTest {
                         .content("""
                             {
                               "status": "SUSPENDED"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void changeRoleAcceptsPatchRequest() throws Exception {
+        when(adminUserService.changeRole(eq(1L), any(AdminUserRoleUpdateRequest.class), isNull(User.class)))
+                .thenReturn(null);
+
+        mockMvc.perform(patch("/api/v1/admin/users/1/role")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "role": "ADMIN"
                             }
                             """))
                 .andExpect(status().isOk())
