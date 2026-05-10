@@ -58,4 +58,44 @@ public class CodingWorkbook extends BaseTimeEntity {
     private int displayOrder;
 
     private LocalDateTime deletedAt;
+
+    public void update(
+        String slug,
+        String title,
+        String category,
+        CodingDifficulty difficulty,
+        String summary,
+        String description,
+        CodingWorkbookStatus status,
+        Integer displayOrder
+    ) {
+        if (slug != null) {
+            this.slug = slug;
+        }
+        if (title != null) {
+            this.title = title;
+        }
+        if (category != null) {
+            this.category = category;
+        }
+        if (difficulty != null) {
+            this.difficulty = difficulty;
+        }
+        if (summary != null) {
+            this.summary = summary;
+        }
+        if (description != null) {
+            this.description = description;
+        }
+        if (status != null) {
+            this.status = status;
+        }
+        if (displayOrder != null) {
+            this.displayOrder = displayOrder;
+        }
+    }
+
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
+    }
 }

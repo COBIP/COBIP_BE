@@ -73,4 +73,48 @@ public class CodingProblem extends BaseTimeEntity {
     private CodingProblemStatus status;
 
     private LocalDateTime deletedAt;
+
+    public void update(
+        String title,
+        String category,
+        CodingDifficulty difficulty,
+        JsonNode contentJson,
+        JsonNode explanationJson,
+        Integer orderIndex,
+        Integer timeLimitMillis,
+        Integer memoryLimitMb,
+        CodingProblemStatus status
+    ) {
+        if (title != null) {
+            this.title = title;
+        }
+        if (category != null) {
+            this.category = category;
+        }
+        if (difficulty != null) {
+            this.difficulty = difficulty;
+        }
+        if (contentJson != null) {
+            this.contentJson = contentJson;
+        }
+        if (explanationJson != null) {
+            this.explanationJson = explanationJson;
+        }
+        if (orderIndex != null) {
+            this.orderIndex = orderIndex;
+        }
+        if (timeLimitMillis != null) {
+            this.timeLimitMillis = timeLimitMillis;
+        }
+        if (memoryLimitMb != null) {
+            this.memoryLimitMb = memoryLimitMb;
+        }
+        if (status != null) {
+            this.status = status;
+        }
+    }
+
+    public void delete() {
+        this.deletedAt = LocalDateTime.now();
+    }
 }

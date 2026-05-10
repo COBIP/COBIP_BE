@@ -8,4 +8,10 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface CodingWorkbookRepository extends JpaRepository<CodingWorkbook, Long>, JpaSpecificationExecutor<CodingWorkbook> {
 
     Optional<CodingWorkbook> findByIdAndStatusAndDeletedAtIsNull(Long id, CodingWorkbookStatus status);
+
+    Optional<CodingWorkbook> findByIdAndDeletedAtIsNull(Long id);
+
+    boolean existsBySlugAndDeletedAtIsNull(String slug);
+
+    boolean existsBySlugAndIdNotAndDeletedAtIsNull(String slug, Long id);
 }

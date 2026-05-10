@@ -10,8 +10,12 @@ public interface CodingProblemRepository extends JpaRepository<CodingProblem, Lo
 
     Optional<CodingProblem> findByIdAndStatusAndDeletedAtIsNull(Long id, CodingProblemStatus status);
 
+    Optional<CodingProblem> findByIdAndWorkbookIdAndDeletedAtIsNull(Long id, Long workbookId);
+
     List<CodingProblem> findByWorkbookIdAndStatusAndDeletedAtIsNullOrderByOrderIndexAsc(
             Long workbookId,
             CodingProblemStatus status
     );
+
+    List<CodingProblem> findByWorkbookIdAndDeletedAtIsNullOrderByOrderIndexAscIdAsc(Long workbookId);
 }
