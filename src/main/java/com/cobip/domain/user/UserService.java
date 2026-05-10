@@ -126,6 +126,6 @@ public class UserService {
         // Refresh Token은 로그아웃 또는 만료 시 삭제할 수 있도록 Redis에 저장한다.
         redisService.saveRefreshToken(user.getId(), refreshToken, jwtProvider.getRefreshTokenExpiration());
 
-        return new AuthResponse(accessToken, refreshToken);
+        return new AuthResponse(accessToken, refreshToken, user.getRole());
     }
 }
