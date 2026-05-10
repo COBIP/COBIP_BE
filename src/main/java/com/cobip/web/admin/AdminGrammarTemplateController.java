@@ -5,6 +5,9 @@ import com.cobip.domain.grammar.GrammarTemplateLanguage;
 import com.cobip.domain.grammar.GrammarTemplateMediaType;
 import com.cobip.domain.grammar.GrammarTemplateService;
 import com.cobip.domain.grammar.GrammarTemplateStatus;
+import com.cobip.dto.grammar.GrammarTemplateChapterCreateRequest;
+import com.cobip.dto.grammar.GrammarTemplateChapterResponse;
+import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateDetailResponse;
 import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
@@ -13,6 +16,8 @@ import com.cobip.dto.grammar.GrammarTemplateSummaryResponse;
 import com.cobip.dto.grammar.GrammarTemplateUpdateRequest;
 import com.cobip.global.common.ApiResponse;
 import com.cobip.global.common.PageResponse;
+
+import java.util.List;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -98,6 +103,45 @@ public class AdminGrammarTemplateController {
                 "문법 템플릿 공개 상태가 변경되었습니다.",
                 grammarTemplateService.changeStatus(templateId, request.getStatus())
         ));
+    }
+
+    @GetMapping("/{templateId}/chapters")
+    public ResponseEntity<ApiResponse<List<GrammarTemplateChapterResponse>>> getChapters(
+        @PathVariable Long templateId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(grammarTemplateService.getChapters(templateId)));
+    }
+
+    @PostMapping("/{templateId}/chapters")
+    public ResponseEntity<ApiResponse<GrammarTemplateChapterResponse>> createChapter(
+        @PathVariable Long templateId,
+        @RequestBody @Valid GrammarTemplateChapterCreateRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Grammar template chapter created.",
+                grammarTemplateService.createChapter(templateId, request)
+        ));
+    }
+
+    @PatchMapping("/{templateId}/chapters/{chapterId}")
+    public ResponseEntity<ApiResponse<GrammarTemplateChapterResponse>> updateChapter(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId,
+        @RequestBody @Valid GrammarTemplateChapterUpdateRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Grammar template chapter updated.",
+                grammarTemplateService.updateChapter(templateId, chapterId, request)
+        ));
+    }
+
+    @DeleteMapping("/{templateId}/chapters/{chapterId}")
+    public ResponseEntity<ApiResponse<Void>> deleteChapter(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId
+    ) {
+        grammarTemplateService.deleteChapter(templateId, chapterId);
+        return ResponseEntity.ok(ApiResponse.success("Grammar template chapter deleted.", null));
     }
 
     @PostMapping("/{templateId}/media")
