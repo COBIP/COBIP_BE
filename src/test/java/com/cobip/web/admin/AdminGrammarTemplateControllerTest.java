@@ -19,6 +19,8 @@ import com.cobip.domain.grammar.GrammarTemplate;
 import com.cobip.domain.grammar.GrammarTemplateChapter;
 import com.cobip.domain.grammar.GrammarTemplateLanguage;
 import com.cobip.domain.grammar.GrammarTemplateMediaType;
+import com.cobip.domain.grammar.GrammarTemplatePracticeFile;
+import com.cobip.domain.grammar.GrammarTemplatePracticeFileType;
 import com.cobip.domain.grammar.GrammarTemplateService;
 import com.cobip.domain.grammar.GrammarTemplateStatus;
 import com.cobip.dto.grammar.GrammarTemplateChapterCreateRequest;
@@ -26,6 +28,8 @@ import com.cobip.dto.grammar.GrammarTemplateChapterResponse;
 import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
+import com.cobip.dto.grammar.GrammarTemplatePracticeFileRequest;
+import com.cobip.dto.grammar.GrammarTemplatePracticeFileResponse;
 import com.cobip.dto.grammar.GrammarTemplateUpdateRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.security.JwtAuthenticationFilter;
@@ -226,6 +230,76 @@ class AdminGrammarTemplateControllerTest {
     }
 
     @Test
+    void getPracticeFilesReturnsFileList() throws Exception {
+        when(grammarTemplateService.getPracticeFiles(1L, 10L)).thenReturn(List.of(practiceFileResponse()));
+
+        mockMvc.perform(get("/api/v1/admin/grammar-templates/1/chapters/10/practice-files"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].filePath").value("src/main.py"))
+                .andExpect(jsonPath("$.data[0].nodeType").value("FILE"));
+    }
+
+    @Test
+    void createPracticeFileAcceptsRequestBody() throws Exception {
+        when(grammarTemplateService.createPracticeFile(
+                eq(1L),
+                eq(10L),
+                any(GrammarTemplatePracticeFileRequest.class)
+        )).thenReturn(practiceFileResponse());
+
+        mockMvc.perform(post("/api/v1/admin/grammar-templates/1/chapters/10/practice-files")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "nodeType": "FILE",
+                              "filePath": "src/main.py",
+                              "language": "python",
+                              "content": "print(10)",
+                              "readOnly": false,
+                              "orderIndex": 1
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.filePath").value("src/main.py"));
+    }
+
+    @Test
+    void updatePracticeFileAcceptsPatchRequest() throws Exception {
+        when(grammarTemplateService.updatePracticeFile(
+                eq(1L),
+                eq(10L),
+                eq(100L),
+                any(GrammarTemplatePracticeFileRequest.class)
+        )).thenReturn(practiceFileResponse());
+
+        mockMvc.perform(patch("/api/v1/admin/grammar-templates/1/chapters/10/practice-files/100")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "nodeType": "FILE",
+                              "filePath": "src/main.py",
+                              "language": "python",
+                              "content": "print(10)",
+                              "readOnly": false,
+                              "orderIndex": 1
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void deletePracticeFileReturnsSuccessResponse() throws Exception {
+        doNothing().when(grammarTemplateService).deletePracticeFile(1L, 10L, 100L);
+
+        mockMvc.perform(delete("/api/v1/admin/grammar-templates/1/chapters/10/practice-files/100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
     void uploadMediaAcceptsImageFile() throws Exception {
         when(grammarTemplateService.uploadMedia(
                 eq(1L),
@@ -316,5 +390,31 @@ class AdminGrammarTemplateControllerTest {
                 .searchableText("variables")
                 .build();
         return GrammarTemplateChapterResponse.from(chapter);
+    }
+
+    private GrammarTemplatePracticeFileResponse practiceFileResponse() {
+        GrammarTemplate template = GrammarTemplate.builder()
+                .id(1L)
+                .build();
+        GrammarTemplateChapter chapter = GrammarTemplateChapter.builder()
+                .id(10L)
+                .template(template)
+                .title("Variables")
+                .orderIndex(1)
+                .contentJson(objectMapper.createObjectNode().put("type", "doc"))
+                .searchableText("variables")
+                .build();
+        GrammarTemplatePracticeFile file = GrammarTemplatePracticeFile.builder()
+                .id(100L)
+                .template(template)
+                .chapter(chapter)
+                .nodeType(GrammarTemplatePracticeFileType.FILE)
+                .filePath("src/main.py")
+                .language("python")
+                .content("print(10)")
+                .readOnly(false)
+                .orderIndex(1)
+                .build();
+        return GrammarTemplatePracticeFileResponse.from(file);
     }
 }

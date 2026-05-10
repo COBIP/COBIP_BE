@@ -1,11 +1,14 @@
 package com.cobip.dto.grammar;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.cobip.domain.grammar.GrammarTemplate;
 import com.cobip.domain.grammar.GrammarTemplateChapter;
 import com.cobip.domain.grammar.GrammarTemplateDifficulty;
 import com.cobip.domain.grammar.GrammarTemplateLanguage;
+import com.cobip.domain.grammar.GrammarTemplatePracticeFile;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import lombok.Getter;
@@ -23,7 +26,14 @@ public class GrammarTemplatePublicDetailResponse {
     private final JsonNode contentJson;
     private final List<GrammarTemplateChapterResponse> chapters;
 
-    private GrammarTemplatePublicDetailResponse(GrammarTemplate template, List<GrammarTemplateChapter> chapters) {
+    private GrammarTemplatePublicDetailResponse(
+        GrammarTemplate template,
+        List<GrammarTemplateChapter> chapters,
+        List<GrammarTemplatePracticeFile> practiceFiles
+    ) {
+        Map<Long, List<GrammarTemplatePracticeFile>> practiceFilesByChapterId = practiceFiles.stream()
+                .collect(Collectors.groupingBy(file -> file.getChapter().getId()));
+
         this.id = template.getId();
         this.slug = template.getSlug();
         this.title = template.getTitle();
@@ -33,18 +43,29 @@ public class GrammarTemplatePublicDetailResponse {
         this.summary = template.getSummary();
         this.contentJson = template.getContentJson();
         this.chapters = chapters.stream()
-                .map(GrammarTemplateChapterResponse::from)
+                .map(chapter -> GrammarTemplateChapterResponse.from(
+                        chapter,
+                        practiceFilesByChapterId.getOrDefault(chapter.getId(), List.of())
+                ))
                 .toList();
     }
 
     public static GrammarTemplatePublicDetailResponse from(GrammarTemplate template) {
-        return from(template, List.of());
+        return from(template, List.of(), List.of());
     }
 
     public static GrammarTemplatePublicDetailResponse from(
         GrammarTemplate template,
         List<GrammarTemplateChapter> chapters
     ) {
-        return new GrammarTemplatePublicDetailResponse(template, chapters);
+        return from(template, chapters, List.of());
+    }
+
+    public static GrammarTemplatePublicDetailResponse from(
+        GrammarTemplate template,
+        List<GrammarTemplateChapter> chapters,
+        List<GrammarTemplatePracticeFile> practiceFiles
+    ) {
+        return new GrammarTemplatePublicDetailResponse(template, chapters, practiceFiles);
     }
 }

@@ -17,6 +17,7 @@ public enum ErrorCode {
     TEMPLATE_PRACTICE_MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "템플릿 실습 미션을 찾을 수 없습니다."),
     GRAMMAR_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "문법 템플릿을 찾을 수 없습니다."),
     GRAMMAR_TEMPLATE_CHAPTER_NOT_FOUND(HttpStatus.NOT_FOUND, "문법 템플릿 챕터를 찾을 수 없습니다."),
+    GRAMMAR_TEMPLATE_PRACTICE_FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "문법 템플릿 실습 파일을 찾을 수 없습니다."),
     CODING_WORKBOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "코테집을 찾을 수 없습니다."),
     CODING_PROBLEM_NOT_FOUND(HttpStatus.NOT_FOUND, "코딩 문제를 찾을 수 없습니다."),
     COMMUNITY_POST_NOT_FOUND(HttpStatus.NOT_FOUND, "커뮤니티 게시글을 찾을 수 없습니다."),
