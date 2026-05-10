@@ -90,11 +90,15 @@ jobs:
             '{
               commands: [
                 "set -euo pipefail",
+                ("trap '\''echo \"--- docker ps -a ---\"; docker ps -a; echo \"--- " + $container + " logs ---\"; docker logs --tail=200 " + $container + " || true'\'' ERR"),
                 ("aws ecr get-login-password --region " + $region + " | docker login --username AWS --password-stdin " + $registry),
                 ("docker pull " + $image),
                 ("docker stop " + $container + " || true"),
                 ("docker rm " + $container + " || true"),
                 ("docker run -d --name " + $container + " --restart unless-stopped --env-file " + $env_file + " --network " + $network + " --network-alias app -p " + $host_port + ":" + $container_port + " " + $image),
+                ("HEALTH_URL=http://localhost:" + $host_port + "/actuator/health"),
+                "for i in $(seq 1 30); do curl -fsS \"$HEALTH_URL\" && break; sleep 2; done",
+                "curl -fsS \"$HEALTH_URL\"",
                 "docker image prune -f"
               ]
             }')
@@ -108,13 +112,18 @@ jobs:
             --query "Command.CommandId" \
             --output text)
 
+          set +e
           aws ssm wait command-executed \
             --region "${AWS_REGION}" \
             --command-id "${COMMAND_ID}" \
             --instance-id "${EC2_INSTANCE_ID}"
+          WAIT_STATUS=$?
+          set -e
 
           aws ssm get-command-invocation \
             --region "${AWS_REGION}" \
             --command-id "${COMMAND_ID}" \
             --instance-id "${EC2_INSTANCE_ID}" \
             --query "{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}"
+
+          exit "${WAIT_STATUS}"
