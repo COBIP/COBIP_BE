@@ -5,7 +5,9 @@ import java.util.List;
 
 import com.cobip.domain.activity.ActivityHistoryService;
 import com.cobip.domain.activity.ActivityType;
+import com.cobip.dto.admin.AdminUserCreateRequest;
 import com.cobip.dto.admin.AdminUserDetailResponse;
+import com.cobip.dto.admin.AdminUserRoleUpdateRequest;
 import com.cobip.dto.admin.AdminUserStatusUpdateRequest;
 import com.cobip.dto.admin.AdminUserSummaryResponse;
 import com.cobip.global.common.PageResponse;
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +31,7 @@ public class AdminUserService {
     private final UserRepository userRepository;
     private final RedisService redisService;
     private final ActivityHistoryService activityHistoryService;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public PageResponse<AdminUserSummaryResponse> getUsers(
@@ -49,6 +53,37 @@ public class AdminUserService {
     }
 
     @Transactional
+    public AdminUserDetailResponse createAdmin(AdminUserCreateRequest request, User adminUser) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
+        if (userRepository.existsByNickname(request.getNickname())) {
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+
+        User user = userRepository.save(User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .nickname(request.getNickname())
+                .role(UserRole.ADMIN)
+                .status(UserStatus.ACTIVE)
+                .emailVerified(true)
+                .build());
+
+        if (adminUser != null) {
+            activityHistoryService.record(
+                    adminUser,
+                    ActivityType.ADMIN_USER_ROLE_CHANGED,
+                    "Admin created admin account.",
+                    "USER",
+                    user.getId()
+            );
+        }
+
+        return AdminUserDetailResponse.from(user);
+    }
+
+    @Transactional
     public AdminUserDetailResponse changeStatus(Long userId, AdminUserStatusUpdateRequest request, User adminUser) {
         User user = findUser(userId);
         user.changeStatus(request.getStatus());
@@ -61,6 +96,25 @@ public class AdminUserService {
                     adminUser,
                     ActivityType.ADMIN_USER_STATUS_CHANGED,
                     "Admin changed user status to " + request.getStatus(),
+                    "USER",
+                    user.getId()
+            );
+        }
+
+        return AdminUserDetailResponse.from(user);
+    }
+
+    @Transactional
+    public AdminUserDetailResponse changeRole(Long userId, AdminUserRoleUpdateRequest request, User adminUser) {
+        User user = findUser(userId);
+        user.changeRole(request.getRole());
+        redisService.deleteRefreshToken(user.getId());
+
+        if (adminUser != null) {
+            activityHistoryService.record(
+                    adminUser,
+                    ActivityType.ADMIN_USER_ROLE_CHANGED,
+                    "Admin changed user role to " + request.getRole(),
                     "USER",
                     user.getId()
             );
