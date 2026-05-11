@@ -5,11 +5,11 @@ import com.cobip.domain.template.TemplateAccessLevel;
 import com.cobip.domain.template.TemplateDifficulty;
 import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.domain.user.User;
+import com.cobip.dto.admin.AdminTemplateCreateRequest;
 import com.cobip.dto.admin.AdminTemplateDetailResponse;
 import com.cobip.dto.admin.AdminTemplateExposureUpdateRequest;
 import com.cobip.dto.admin.AdminTemplateSummaryResponse;
-import com.cobip.dto.template.TemplateCreateRequest;
-import com.cobip.dto.template.TemplateUpdateRequest;
+import com.cobip.dto.admin.AdminTemplateUpdateRequest;
 import com.cobip.global.common.ApiResponse;
 import com.cobip.global.common.PageResponse;
 
@@ -60,7 +60,7 @@ public class AdminTemplateController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<AdminTemplateDetailResponse>> createTemplate(
-        @RequestBody @Valid TemplateCreateRequest request,
+        @RequestBody @Valid AdminTemplateCreateRequest request,
         @AuthenticationPrincipal User adminUser
     ) {
         return ResponseEntity.ok(ApiResponse.success(
@@ -72,7 +72,7 @@ public class AdminTemplateController {
     @PatchMapping("/{templateId}")
     public ResponseEntity<ApiResponse<AdminTemplateDetailResponse>> updateTemplate(
         @PathVariable Long templateId,
-        @RequestBody @Valid TemplateUpdateRequest request,
+        @RequestBody @Valid AdminTemplateUpdateRequest request,
         @AuthenticationPrincipal User adminUser
     ) {
         return ResponseEntity.ok(ApiResponse.success(
