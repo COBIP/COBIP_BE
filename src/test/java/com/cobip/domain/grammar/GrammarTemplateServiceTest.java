@@ -11,6 +11,7 @@ import java.util.Optional;
 
 import com.cobip.dto.grammar.GrammarTemplateChapterCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
+import com.cobip.dto.grammar.GrammarTemplatePracticeFileRequest;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
 import com.cobip.infra.aws.S3Service;
@@ -36,6 +37,9 @@ class GrammarTemplateServiceTest {
     private GrammarTemplateChapterRepository grammarTemplateChapterRepository;
 
     @Mock
+    private GrammarTemplatePracticeFileRepository grammarTemplatePracticeFileRepository;
+
+    @Mock
     private GrammarTemplateTextExtractor textExtractor;
 
     @Mock
@@ -50,6 +54,7 @@ class GrammarTemplateServiceTest {
         grammarTemplateService = new GrammarTemplateService(
                 grammarTemplateRepository,
                 grammarTemplateChapterRepository,
+                grammarTemplatePracticeFileRepository,
                 textExtractor,
                 s3Service
         );
@@ -89,10 +94,13 @@ class GrammarTemplateServiceTest {
     void getPublishedGrammarTemplateReturnsOnlyPublishedDetail() {
         GrammarTemplate template = template(1L, GrammarTemplateStatus.PUBLISHED);
         GrammarTemplateChapter chapter = chapter(10L, template, "Variables", 1);
+        GrammarTemplatePracticeFile file = practiceFile(100L, template, chapter, "src/main.py");
         when(grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(1L, GrammarTemplateStatus.PUBLISHED))
                 .thenReturn(Optional.of(template));
         when(grammarTemplateChapterRepository.findByTemplateIdAndDeletedAtIsNullOrderByOrderIndexAscIdAsc(1L))
                 .thenReturn(List.of(chapter));
+        when(grammarTemplatePracticeFileRepository.findByTemplateIdOrderByChapterIdAscOrderIndexAscIdAsc(1L))
+                .thenReturn(List.of(file));
 
         var response = grammarTemplateService.getPublishedGrammarTemplate(1L);
 
@@ -100,6 +108,9 @@ class GrammarTemplateServiceTest {
         assertThat(response.getContentJson()).isNotNull();
         assertThat(response.getChapters()).hasSize(1);
         assertThat(response.getChapters().getFirst().getTitle()).isEqualTo("Variables");
+        assertThat(response.getChapters().getFirst().getPracticeFiles()).hasSize(1);
+        assertThat(response.getChapters().getFirst().getPracticeFiles().getFirst().getFilePath())
+                .isEqualTo("src/main.py");
     }
 
     @Test
@@ -162,6 +173,46 @@ class GrammarTemplateServiceTest {
                 .isEqualTo(ErrorCode.GRAMMAR_TEMPLATE_CHAPTER_NOT_FOUND);
     }
 
+    @Test
+    void createPracticeFileSavesChapterFile() throws Exception {
+        GrammarTemplate template = template(1L, GrammarTemplateStatus.DRAFT);
+        GrammarTemplateChapter chapter = chapter(10L, template, "Variables", 1);
+        GrammarTemplatePracticeFileRequest request = practiceFileRequest("src/main.py");
+        when(grammarTemplateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+        when(grammarTemplatePracticeFileRepository.save(any(GrammarTemplatePracticeFile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = grammarTemplateService.createPracticeFile(1L, 10L, request);
+
+        ArgumentCaptor<GrammarTemplatePracticeFile> fileCaptor =
+                ArgumentCaptor.forClass(GrammarTemplatePracticeFile.class);
+        verify(grammarTemplatePracticeFileRepository).save(fileCaptor.capture());
+        assertThat(response.getTemplateId()).isEqualTo(1L);
+        assertThat(response.getChapterId()).isEqualTo(10L);
+        assertThat(response.getNodeType()).isEqualTo(GrammarTemplatePracticeFileType.FILE);
+        assertThat(fileCaptor.getValue().getFilePath()).isEqualTo("src/main.py");
+    }
+
+    @Test
+    void updatePracticeFileChangesFileContent() throws Exception {
+        GrammarTemplate template = template(1L, GrammarTemplateStatus.DRAFT);
+        GrammarTemplateChapter chapter = chapter(10L, template, "Variables", 1);
+        GrammarTemplatePracticeFile file = practiceFile(100L, template, chapter, "src/main.py");
+        GrammarTemplatePracticeFileRequest request = practiceFileRequest("src/app.py");
+        when(grammarTemplateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+        when(grammarTemplatePracticeFileRepository.findByIdAndTemplateIdAndChapterId(100L, 1L, 10L))
+                .thenReturn(Optional.of(file));
+
+        var response = grammarTemplateService.updatePracticeFile(1L, 10L, 100L, request);
+
+        assertThat(response.getFilePath()).isEqualTo("src/app.py");
+        assertThat(file.getContent()).isEqualTo("print(10)");
+    }
+
     private GrammarTemplate template(Long id, GrammarTemplateStatus status) {
         return GrammarTemplate.builder()
                 .id(id)
@@ -185,6 +236,25 @@ class GrammarTemplateServiceTest {
                 .orderIndex(orderIndex)
                 .contentJson(objectMapper.createObjectNode().put("type", "doc"))
                 .searchableText("variables")
+                .build();
+    }
+
+    private GrammarTemplatePracticeFile practiceFile(
+        Long id,
+        GrammarTemplate template,
+        GrammarTemplateChapter chapter,
+        String filePath
+    ) {
+        return GrammarTemplatePracticeFile.builder()
+                .id(id)
+                .template(template)
+                .chapter(chapter)
+                .nodeType(GrammarTemplatePracticeFileType.FILE)
+                .filePath(filePath)
+                .language("python")
+                .content("print(10)")
+                .readOnly(false)
+                .orderIndex(1)
                 .build();
     }
 
@@ -232,5 +302,18 @@ class GrammarTemplateServiceTest {
               }
             }
             """, GrammarTemplateChapterUpdateRequest.class);
+    }
+
+    private GrammarTemplatePracticeFileRequest practiceFileRequest(String filePath) throws Exception {
+        return objectMapper.readValue("""
+            {
+              "nodeType": "FILE",
+              "filePath": "%s",
+              "language": "python",
+              "content": "print(10)",
+              "readOnly": false,
+              "orderIndex": 1
+            }
+            """.formatted(filePath), GrammarTemplatePracticeFileRequest.class);
     }
 }

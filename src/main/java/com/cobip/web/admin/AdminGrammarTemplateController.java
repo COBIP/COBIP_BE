@@ -11,6 +11,8 @@ import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateDetailResponse;
 import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
+import com.cobip.dto.grammar.GrammarTemplatePracticeFileRequest;
+import com.cobip.dto.grammar.GrammarTemplatePracticeFileResponse;
 import com.cobip.dto.grammar.GrammarTemplateStatusUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateSummaryResponse;
 import com.cobip.dto.grammar.GrammarTemplateUpdateRequest;
@@ -142,6 +144,49 @@ public class AdminGrammarTemplateController {
     ) {
         grammarTemplateService.deleteChapter(templateId, chapterId);
         return ResponseEntity.ok(ApiResponse.success("Grammar template chapter deleted.", null));
+    }
+
+    @GetMapping("/{templateId}/chapters/{chapterId}/practice-files")
+    public ResponseEntity<ApiResponse<List<GrammarTemplatePracticeFileResponse>>> getPracticeFiles(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(grammarTemplateService.getPracticeFiles(templateId, chapterId)));
+    }
+
+    @PostMapping("/{templateId}/chapters/{chapterId}/practice-files")
+    public ResponseEntity<ApiResponse<GrammarTemplatePracticeFileResponse>> createPracticeFile(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId,
+        @RequestBody @Valid GrammarTemplatePracticeFileRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Grammar template practice file created.",
+                grammarTemplateService.createPracticeFile(templateId, chapterId, request)
+        ));
+    }
+
+    @PatchMapping("/{templateId}/chapters/{chapterId}/practice-files/{fileId}")
+    public ResponseEntity<ApiResponse<GrammarTemplatePracticeFileResponse>> updatePracticeFile(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId,
+        @PathVariable Long fileId,
+        @RequestBody @Valid GrammarTemplatePracticeFileRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Grammar template practice file updated.",
+                grammarTemplateService.updatePracticeFile(templateId, chapterId, fileId, request)
+        ));
+    }
+
+    @DeleteMapping("/{templateId}/chapters/{chapterId}/practice-files/{fileId}")
+    public ResponseEntity<ApiResponse<Void>> deletePracticeFile(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId,
+        @PathVariable Long fileId
+    ) {
+        grammarTemplateService.deletePracticeFile(templateId, chapterId, fileId);
+        return ResponseEntity.ok(ApiResponse.success("Grammar template practice file deleted.", null));
     }
 
     @PostMapping("/{templateId}/media")
