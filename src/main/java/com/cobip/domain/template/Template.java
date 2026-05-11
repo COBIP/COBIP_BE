@@ -6,6 +6,9 @@ import java.util.List;
 
 import com.cobip.domain.common.BaseTimeEntity;
 import com.cobip.domain.user.User;
+import com.cobip.dto.admin.AdminTemplateCreateRequest;
+import com.cobip.dto.admin.AdminTemplateInterviewQuestionRequest;
+import com.cobip.dto.admin.AdminTemplateUpdateRequest;
 import com.cobip.dto.template.TemplateCreateRequest;
 import com.cobip.dto.template.TemplateUpdateRequest;
 
@@ -52,6 +55,9 @@ public class Template extends BaseTimeEntity {
     @Column(nullable = false)
     private String description;
 
+    @Column(length = 500)
+    private String summary;
+
     @Column(nullable = false, length = 80)
     private String category;
 
@@ -64,6 +70,21 @@ public class Template extends BaseTimeEntity {
     @Column(name = "tech_stack", nullable = false, length = 80)
     @Builder.Default
     private List<String> techStacks = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "template_tags", joinColumns = @JoinColumn(name = "template_id"))
+    @Column(name = "tag", nullable = false, length = 80)
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
+
+    @Column(length = 40)
+    private String runtime;
+
+    @Column(name = "license", length = 80)
+    private String license;
+
+    @Column(length = 120)
+    private String source;
 
     @Lob
     private String designIntent;
@@ -82,9 +103,8 @@ public class Template extends BaseTimeEntity {
 
     @ElementCollection
     @CollectionTable(name = "template_interview_questions", joinColumns = @JoinColumn(name = "template_id"))
-    @Column(name = "question", nullable = false, length = 1000)
     @Builder.Default
-    private List<String> interviewQuestions = new ArrayList<>();
+    private List<TemplateInterviewQuestion> interviewQuestions = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -121,15 +141,46 @@ public class Template extends BaseTimeEntity {
                 .description(request.getDescription())
                 .category(request.getCategory())
                 .difficulty(request.getDifficulty())
-                .techStacks(new ArrayList<>(request.getTechStacks()))
+                .techStacks(new ArrayList<>(listOrEmpty(request.getTechStacks())))
+                .tags(new ArrayList<>())
                 .designIntent(request.getDesignIntent())
                 .requirementsSpec(request.getRequirementsSpec())
                 .erd(request.getErd())
                 .apiSpec(request.getApiSpec())
                 .projectStructure(request.getProjectStructure())
-                .interviewQuestions(new ArrayList<>(request.getInterviewQuestions()))
+                .interviewQuestions(toInterviewQuestions(request.getInterviewQuestions()))
                 .visibility(request.getVisibility())
                 .accessLevel(request.getAccessLevel())
+                .viewCount(0)
+                .favoriteCount(0)
+                .build();
+    }
+
+    public static Template create(User owner, AdminTemplateCreateRequest request) {
+        TemplateVisibility visibility = request.getPublished() != null
+                ? visibilityFromPublished(request.getPublished())
+                : request.getVisibility();
+        return Template.builder()
+                .owner(owner)
+                .title(request.getTitle())
+                .summary(request.getSummary())
+                .description(request.getDescription())
+                .category(request.getCategory())
+                .difficulty(request.getDifficulty())
+                .techStacks(new ArrayList<>(listOrEmpty(request.getTechStacks())))
+                .tags(new ArrayList<>(listOrEmpty(request.getTags())))
+                .runtime(request.getRuntime())
+                .license(request.getLicense())
+                .source(request.getSource())
+                .designIntent(request.getDesignIntent())
+                .requirementsSpec(request.getRequirementsSpec())
+                .erd(request.getErd())
+                .apiSpec(request.getApiSpec())
+                .projectStructure(request.getProjectStructure())
+                .interviewQuestions(toAdminInterviewQuestions(request.getInterviewQuestions()))
+                .visibility(visibility == null ? TemplateVisibility.PUBLIC : visibility)
+                .accessLevel(request.getAccessLevel() == null ? TemplateAccessLevel.FREE : request.getAccessLevel())
+                .thumbnailUrl(request.getPreviewImage())
                 .viewCount(0)
                 .favoriteCount(0)
                 .build();
@@ -167,9 +218,71 @@ public class Template extends BaseTimeEntity {
             this.projectStructure = request.getProjectStructure();
         }
         if (request.getInterviewQuestions() != null) {
-            this.interviewQuestions = new ArrayList<>(request.getInterviewQuestions());
+            this.interviewQuestions = toInterviewQuestions(request.getInterviewQuestions());
         }
         if (request.getVisibility() != null) {
+            this.visibility = request.getVisibility();
+        }
+        if (request.getAccessLevel() != null) {
+            this.accessLevel = request.getAccessLevel();
+        }
+    }
+
+    public void update(AdminTemplateUpdateRequest request) {
+        if (request.getTitle() != null) {
+            this.title = request.getTitle();
+        }
+        if (request.getSummary() != null) {
+            this.summary = request.getSummary();
+        }
+        if (request.getDescription() != null) {
+            this.description = request.getDescription();
+        }
+        if (request.getCategory() != null) {
+            this.category = request.getCategory();
+        }
+        if (request.getDifficulty() != null) {
+            this.difficulty = request.getDifficulty();
+        }
+        if (request.getTechStacks() != null) {
+            this.techStacks = new ArrayList<>(request.getTechStacks());
+        }
+        if (request.getTags() != null) {
+            this.tags = new ArrayList<>(request.getTags());
+        }
+        if (request.getRuntime() != null) {
+            this.runtime = request.getRuntime();
+        }
+        if (request.getLicense() != null) {
+            this.license = request.getLicense();
+        }
+        if (request.getSource() != null) {
+            this.source = request.getSource();
+        }
+        if (request.getPreviewImage() != null) {
+            this.thumbnailUrl = request.getPreviewImage();
+        }
+        if (request.getDesignIntent() != null) {
+            this.designIntent = request.getDesignIntent();
+        }
+        if (request.getRequirementsSpec() != null) {
+            this.requirementsSpec = request.getRequirementsSpec();
+        }
+        if (request.getErd() != null) {
+            this.erd = request.getErd();
+        }
+        if (request.getApiSpec() != null) {
+            this.apiSpec = request.getApiSpec();
+        }
+        if (request.getProjectStructure() != null) {
+            this.projectStructure = request.getProjectStructure();
+        }
+        if (request.getInterviewQuestions() != null) {
+            this.interviewQuestions = toAdminInterviewQuestions(request.getInterviewQuestions());
+        }
+        if (request.getPublished() != null) {
+            this.visibility = visibilityFromPublished(request.getPublished());
+        } else if (request.getVisibility() != null) {
             this.visibility = request.getVisibility();
         }
         if (request.getAccessLevel() != null) {
@@ -224,5 +337,33 @@ public class Template extends BaseTimeEntity {
 
     public void delete() {
         this.deletedAt = LocalDateTime.now();
+    }
+
+    private static List<TemplateInterviewQuestion> toInterviewQuestions(List<String> questions) {
+        if (questions == null) {
+            return new ArrayList<>();
+        }
+        return questions.stream()
+                .map(question -> TemplateInterviewQuestion.of(question, ""))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    }
+
+    private static List<TemplateInterviewQuestion> toAdminInterviewQuestions(
+        List<AdminTemplateInterviewQuestionRequest> questions
+    ) {
+        if (questions == null) {
+            return new ArrayList<>();
+        }
+        return questions.stream()
+                .map(question -> TemplateInterviewQuestion.of(question.getQuestion(), question.getAnswerHint()))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    }
+
+    private static TemplateVisibility visibilityFromPublished(boolean published) {
+        return published ? TemplateVisibility.PUBLIC : TemplateVisibility.PRIVATE;
+    }
+
+    private static <T> List<T> listOrEmpty(List<T> values) {
+        return values == null ? List.of() : values;
     }
 }

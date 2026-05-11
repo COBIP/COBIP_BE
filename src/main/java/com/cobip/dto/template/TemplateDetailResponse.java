@@ -6,6 +6,7 @@ import java.util.List;
 import com.cobip.domain.template.Template;
 import com.cobip.domain.template.TemplateAccessLevel;
 import com.cobip.domain.template.TemplateDifficulty;
+import com.cobip.domain.template.TemplateInterviewQuestion;
 import com.cobip.domain.template.TemplateVisibility;
 
 import lombok.Getter;
@@ -51,7 +52,9 @@ public class TemplateDetailResponse {
         this.erd = template.getErd();
         this.apiSpec = template.getApiSpec();
         this.projectStructure = template.getProjectStructure();
-        this.interviewQuestions = List.copyOf(template.getInterviewQuestions());
+        this.interviewQuestions = template.getInterviewQuestions().stream()
+                .map(TemplateInterviewQuestion::getQuestion)
+                .toList();
         this.fileUrl = template.getFileUrl();
         this.thumbnailUrl = template.getThumbnailUrl();
         this.viewCount = template.getViewCount();
