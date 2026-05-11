@@ -11,12 +11,15 @@ import com.cobip.infra.mail.EmailService;
 import com.cobip.infra.redis.RedisService;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailVerificationService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -24,6 +27,7 @@ public class EmailVerificationService {
     private final UserRepository userRepository;
     private final RedisService redisService;
     private final EmailService emailService;
+    private final TaskExecutor mailTaskExecutor;
 
     @Value("${app.auth.email-verification.code-expiration-millis}")
     private long codeExpirationMillis;
@@ -40,7 +44,7 @@ public class EmailVerificationService {
         String code = createCode();
         redisService.deleteVerifiedEmail(email);
         redisService.saveEmailVerificationCode(email, code, codeExpirationMillis);
-        emailService.sendVerificationCode(email, code);
+        mailTaskExecutor.execute(() -> sendVerificationCode(email, code));
     }
 
     public void confirmCode(EmailVerificationConfirmRequest request) {
@@ -63,6 +67,14 @@ public class EmailVerificationService {
 
     private String createCode() {
         return "%06d".formatted(SECURE_RANDOM.nextInt(1_000_000));
+    }
+
+    private void sendVerificationCode(String email, String code) {
+        try {
+            emailService.sendVerificationCode(email, code);
+        } catch (RuntimeException e) {
+            log.warn("Failed to send email verification code.", e);
+        }
     }
 
     private String normalizeEmail(String email) {

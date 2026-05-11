@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.cobip.dto.auth.EmailVerificationConfirmRequest;
@@ -23,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.task.TaskExecutor;
 
 @ExtendWith(MockitoExtension.class)
 class EmailVerificationServiceTest {
@@ -36,17 +38,25 @@ class EmailVerificationServiceTest {
     @Mock
     private EmailService emailService;
 
+    private RecordingTaskExecutor mailTaskExecutor;
+
     private EmailVerificationService emailVerificationService;
 
     @BeforeEach
     void setUp() {
-        emailVerificationService = new EmailVerificationService(userRepository, redisService, emailService);
+        mailTaskExecutor = new RecordingTaskExecutor();
+        emailVerificationService = new EmailVerificationService(
+                userRepository,
+                redisService,
+                emailService,
+                mailTaskExecutor
+        );
         ReflectionTestUtils.setField(emailVerificationService, "codeExpirationMillis", 300_000L);
         ReflectionTestUtils.setField(emailVerificationService, "verifiedExpirationMillis", 1_800_000L);
     }
 
     @Test
-    void sendCodeStoresCodeAndSendsEmail() {
+    void sendCodeStoresCodeAndDispatchesEmail() {
         EmailVerificationSendRequest request = new EmailVerificationSendRequest();
         ReflectionTestUtils.setField(request, "email", "USER@example.com");
 
@@ -56,6 +66,10 @@ class EmailVerificationServiceTest {
         InOrder inOrder = inOrder(redisService);
         inOrder.verify(redisService).deleteVerifiedEmail("user@example.com");
         inOrder.verify(redisService).saveEmailVerificationCode(eq("user@example.com"), codeCaptor.capture(), eq(300_000L));
+        verifyNoInteractions(emailService);
+
+        mailTaskExecutor.runPending();
+
         verify(emailService).sendVerificationCode("user@example.com", codeCaptor.getValue());
         assertThat(codeCaptor.getValue()).matches("\\d{6}");
     }
@@ -95,5 +109,21 @@ class EmailVerificationServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.EMAIL_VERIFICATION_FAILED);
+    }
+
+    private static class RecordingTaskExecutor implements TaskExecutor {
+
+        private Runnable pending;
+
+        @Override
+        public void execute(Runnable task) {
+            pending = task;
+        }
+
+        private void runPending() {
+            assertThat(pending).isNotNull();
+            pending.run();
+            pending = null;
+        }
     }
 }
