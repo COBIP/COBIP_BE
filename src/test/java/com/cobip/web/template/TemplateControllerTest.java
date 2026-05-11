@@ -16,10 +16,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.List;
 
 import com.cobip.domain.certificate.CertificateService;
+import com.cobip.domain.template.Template;
+import com.cobip.domain.template.TemplateAccessLevel;
 import com.cobip.domain.template.TemplateDifficulty;
+import com.cobip.domain.template.TemplateInterviewQuestion;
 import com.cobip.domain.template.TemplateService;
+import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.domain.user.User;
+import com.cobip.domain.user.UserRole;
+import com.cobip.domain.user.UserStatus;
 import com.cobip.dto.template.TemplateCreateRequest;
+import com.cobip.dto.template.TemplateDetailResponse;
 import com.cobip.dto.template.TemplateFileUploadResponse;
 import com.cobip.dto.template.TemplateUpdateRequest;
 import com.cobip.global.common.PageResponse;
@@ -86,11 +93,16 @@ class TemplateControllerTest {
 
     @Test
     void getTemplateReturnsDetailResponseEnvelope() throws Exception {
-        when(templateService.getTemplate(eq(1L), isNull(User.class))).thenReturn(null);
+        when(templateService.getTemplate(eq(1L), isNull(User.class)))
+                .thenReturn(TemplateDetailResponse.of(template(), false));
 
         mockMvc.perform(get("/api/v1/templates/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.interviewQuestions[0].question")
+                        .value("Refresh Token을 왜 Redis에 저장하나요?"))
+                .andExpect(jsonPath("$.data.interviewQuestions[0].answerHint")
+                        .value("로그아웃, 재발급, TTL 관리를 위해 Redis에 저장합니다."));
     }
 
     @Test
@@ -184,5 +196,37 @@ class TemplateControllerTest {
         mockMvc.perform(post("/api/v1/templates/1/certificates"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    private Template template() {
+        return Template.builder()
+                .id(1L)
+                .owner(user())
+                .title("JWT Template")
+                .description("JWT template description")
+                .category("backend")
+                .difficulty(TemplateDifficulty.BEGINNER)
+                .techStacks(List.of("Spring"))
+                .interviewQuestions(List.of(TemplateInterviewQuestion.of(
+                        "Refresh Token을 왜 Redis에 저장하나요?",
+                        "로그아웃, 재발급, TTL 관리를 위해 Redis에 저장합니다."
+                )))
+                .visibility(TemplateVisibility.PUBLIC)
+                .accessLevel(TemplateAccessLevel.FREE)
+                .viewCount(0)
+                .favoriteCount(0)
+                .build();
+    }
+
+    private User user() {
+        return User.builder()
+                .id(1L)
+                .email("user@example.com")
+                .password("password")
+                .nickname("cobip")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .emailVerified(true)
+                .build();
     }
 }
