@@ -12,16 +12,24 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+
 import com.cobip.domain.grammar.GrammarTemplateDifficulty;
+import com.cobip.domain.grammar.GrammarTemplate;
+import com.cobip.domain.grammar.GrammarTemplateChapter;
 import com.cobip.domain.grammar.GrammarTemplateLanguage;
 import com.cobip.domain.grammar.GrammarTemplateMediaType;
 import com.cobip.domain.grammar.GrammarTemplateService;
 import com.cobip.domain.grammar.GrammarTemplateStatus;
+import com.cobip.dto.grammar.GrammarTemplateChapterCreateRequest;
+import com.cobip.dto.grammar.GrammarTemplateChapterResponse;
+import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
 import com.cobip.dto.grammar.GrammarTemplateUpdateRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.security.JwtAuthenticationFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +59,8 @@ class AdminGrammarTemplateControllerTest {
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     void createGrammarTemplateAcceptsRequestBody() throws Exception {
@@ -153,6 +163,69 @@ class AdminGrammarTemplateControllerTest {
     }
 
     @Test
+    void getChaptersReturnsChapterList() throws Exception {
+        when(grammarTemplateService.getChapters(1L)).thenReturn(List.of(chapterResponse()));
+
+        mockMvc.perform(get("/api/v1/admin/grammar-templates/1/chapters"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].id").value(10L))
+                .andExpect(jsonPath("$.data[0].title").value("Variables"));
+    }
+
+    @Test
+    void createChapterAcceptsRequestBody() throws Exception {
+        when(grammarTemplateService.createChapter(
+                eq(1L),
+                any(GrammarTemplateChapterCreateRequest.class)
+        )).thenReturn(chapterResponse());
+
+        mockMvc.perform(post("/api/v1/admin/grammar-templates/1/chapters")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "title": "Variables",
+                              "orderIndex": 1,
+                              "contentJson": {
+                                "type": "doc"
+                              }
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.title").value("Variables"));
+    }
+
+    @Test
+    void updateChapterAcceptsPatchRequest() throws Exception {
+        when(grammarTemplateService.updateChapter(
+                eq(1L),
+                eq(10L),
+                any(GrammarTemplateChapterUpdateRequest.class)
+        )).thenReturn(chapterResponse());
+
+        mockMvc.perform(patch("/api/v1/admin/grammar-templates/1/chapters/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "title": "Variables Updated",
+                              "orderIndex": 2
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void deleteChapterReturnsSuccessResponse() throws Exception {
+        doNothing().when(grammarTemplateService).deleteChapter(1L, 10L);
+
+        mockMvc.perform(delete("/api/v1/admin/grammar-templates/1/chapters/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
     void uploadMediaAcceptsImageFile() throws Exception {
         when(grammarTemplateService.uploadMedia(
                 eq(1L),
@@ -228,5 +301,20 @@ class AdminGrammarTemplateControllerTest {
                             """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    private GrammarTemplateChapterResponse chapterResponse() {
+        GrammarTemplate template = GrammarTemplate.builder()
+                .id(1L)
+                .build();
+        GrammarTemplateChapter chapter = GrammarTemplateChapter.builder()
+                .id(10L)
+                .template(template)
+                .title("Variables")
+                .orderIndex(1)
+                .contentJson(objectMapper.createObjectNode().put("type", "doc"))
+                .searchableText("variables")
+                .build();
+        return GrammarTemplateChapterResponse.from(chapter);
     }
 }

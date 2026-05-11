@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Locale;
 
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
+import com.cobip.dto.grammar.GrammarTemplateChapterCreateRequest;
+import com.cobip.dto.grammar.GrammarTemplateChapterResponse;
+import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateDetailResponse;
 import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
 import com.cobip.dto.grammar.GrammarTemplatePublicDetailResponse;
@@ -31,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class GrammarTemplateService {
 
     private final GrammarTemplateRepository grammarTemplateRepository;
+    private final GrammarTemplateChapterRepository grammarTemplateChapterRepository;
     private final GrammarTemplateTextExtractor textExtractor;
     private final S3Service s3Service;
 
@@ -51,7 +55,7 @@ public class GrammarTemplateService {
                 request.getStatus(),
                 searchableText
         ));
-        return GrammarTemplateDetailResponse.from(template);
+        return GrammarTemplateDetailResponse.from(template, List.of());
     }
 
     @Transactional(readOnly = true)
@@ -96,12 +100,13 @@ public class GrammarTemplateService {
         GrammarTemplate template = grammarTemplateRepository
                 .findByIdAndStatusAndDeletedAtIsNull(templateId, GrammarTemplateStatus.PUBLISHED)
                 .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_NOT_FOUND));
-        return GrammarTemplatePublicDetailResponse.from(template);
+        return GrammarTemplatePublicDetailResponse.from(template, getActiveChapters(template.getId()));
     }
 
     @Transactional(readOnly = true)
     public GrammarTemplateDetailResponse getGrammarTemplate(Long templateId) {
-        return GrammarTemplateDetailResponse.from(getActiveTemplate(templateId));
+        GrammarTemplate template = getActiveTemplate(templateId);
+        return GrammarTemplateDetailResponse.from(template, getActiveChapters(template.getId()));
     }
 
     @Transactional
@@ -127,7 +132,7 @@ public class GrammarTemplateService {
                 request.getContentJson(),
                 searchableText
         );
-        return GrammarTemplateDetailResponse.from(template);
+        return GrammarTemplateDetailResponse.from(template, getActiveChapters(template.getId()));
     }
 
     @Transactional
@@ -140,7 +145,63 @@ public class GrammarTemplateService {
     public GrammarTemplateDetailResponse changeStatus(Long templateId, GrammarTemplateStatus status) {
         GrammarTemplate template = getActiveTemplate(templateId);
         template.changeStatus(status);
-        return GrammarTemplateDetailResponse.from(template);
+        return GrammarTemplateDetailResponse.from(template, getActiveChapters(template.getId()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<GrammarTemplateChapterResponse> getChapters(Long templateId) {
+        GrammarTemplate template = getActiveTemplate(templateId);
+        return getActiveChapters(template.getId()).stream()
+                .map(GrammarTemplateChapterResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public GrammarTemplateChapterResponse createChapter(
+        Long templateId,
+        GrammarTemplateChapterCreateRequest request
+    ) {
+        validateContentJson(request.getContentJson());
+
+        GrammarTemplate template = getActiveTemplate(templateId);
+        String searchableText = textExtractor.extract(request.getContentJson());
+        GrammarTemplateChapter chapter = grammarTemplateChapterRepository.save(GrammarTemplateChapter.create(
+                template,
+                request.getTitle(),
+                request.getOrderIndex(),
+                request.getContentJson(),
+                searchableText
+        ));
+        return GrammarTemplateChapterResponse.from(chapter);
+    }
+
+    @Transactional
+    public GrammarTemplateChapterResponse updateChapter(
+        Long templateId,
+        Long chapterId,
+        GrammarTemplateChapterUpdateRequest request
+    ) {
+        GrammarTemplateChapter chapter = getActiveChapter(templateId, chapterId);
+
+        String searchableText = null;
+        if (request.getContentJson() != null) {
+            validateContentJson(request.getContentJson());
+            searchableText = textExtractor.extract(request.getContentJson());
+        }
+
+        chapter.update(
+                request.getTitle(),
+                request.getOrderIndex(),
+                request.getContentJson(),
+                searchableText
+        );
+        return GrammarTemplateChapterResponse.from(chapter);
+    }
+
+    @Transactional
+    public void deleteChapter(Long templateId, Long chapterId) {
+        GrammarTemplateChapter chapter = getActiveChapter(templateId, chapterId);
+        chapter.delete();
     }
 
     @Transactional(readOnly = true)
@@ -163,6 +224,15 @@ public class GrammarTemplateService {
     private GrammarTemplate getActiveTemplate(Long templateId) {
         return grammarTemplateRepository.findByIdAndDeletedAtIsNull(templateId)
                 .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_NOT_FOUND));
+    }
+
+    private List<GrammarTemplateChapter> getActiveChapters(Long templateId) {
+        return grammarTemplateChapterRepository.findByTemplateIdAndDeletedAtIsNullOrderByOrderIndexAscIdAsc(templateId);
+    }
+
+    private GrammarTemplateChapter getActiveChapter(Long templateId, Long chapterId) {
+        return grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(chapterId, templateId)
+                .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_CHAPTER_NOT_FOUND));
     }
 
     private void validateUniqueSlug(String slug) {
