@@ -9,8 +9,12 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import com.cobip.domain.practice.ProjectExecutionClient;
 import com.cobip.domain.practice.ProjectExecutionFile;
@@ -31,21 +35,23 @@ public class DockerProjectExecutionClient implements ProjectExecutionClient {
     @Override
     public ProjectExecutionResult execute(ProjectExecutionRequest request) {
         Path workspace = createWorkspace();
+        String containerName = "cobip-practice-" + UUID.randomUUID();
         long startedAt = System.currentTimeMillis();
         try {
             writeFiles(workspace, request.files());
-            Process process = new ProcessBuilder(dockerCommand(workspace, request)).start();
+            Process process = new ProcessBuilder(dockerCommand(workspace, request, containerName)).start();
             CompletableFuture<String> stdout = CompletableFuture.supplyAsync(() -> drain(process.getInputStream()));
             CompletableFuture<String> stderr = CompletableFuture.supplyAsync(() -> drain(process.getErrorStream()));
             boolean finished = process.waitFor(request.timeLimitMillis(), TimeUnit.MILLISECONDS);
 
             if (!finished) {
                 process.destroyForcibly();
+                cleanupContainer(containerName);
                 return new ProjectExecutionResult(
                         TemplatePracticeSubmissionStatus.TIME_LIMIT_EXCEEDED,
                         -1,
-                        stdout.join(),
-                        stderr.join(),
+                        outputOf(stdout),
+                        outputOf(stderr),
                         "Project execution timed out.",
                         elapsed(startedAt)
                 );
@@ -57,17 +63,25 @@ public class DockerProjectExecutionClient implements ProjectExecutionClient {
                             ? TemplatePracticeSubmissionStatus.ACCEPTED
                             : TemplatePracticeSubmissionStatus.RUNTIME_ERROR,
                     exitCode,
-                    stdout.join(),
-                    stderr.join(),
+                    outputOf(stdout),
+                    outputOf(stderr),
                     null,
                     elapsed(startedAt)
             );
+        } catch (CustomException e) {
+            if (e.getErrorCode() == ErrorCode.INVALID_REQUEST) {
+                throw e;
+            }
+            return internalError(startedAt, e);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            throw new CustomException(ErrorCode.CODE_EXECUTION_FAILED, e);
+            return internalError(startedAt, e);
+        } catch (RuntimeException e) {
+            return internalError(startedAt, e);
         } finally {
+            cleanupContainer(containerName);
             FileSystemUtils.deleteRecursively(workspace.toFile());
         }
     }
@@ -91,19 +105,28 @@ public class DockerProjectExecutionClient implements ProjectExecutionClient {
         }
     }
 
-    private List<String> dockerCommand(Path workspace, ProjectExecutionRequest request) {
+    private List<String> dockerCommand(Path workspace, ProjectExecutionRequest request, String containerName) {
+        int memoryLimitMb = Math.max(1, request.memoryLimitMb());
         List<String> command = new ArrayList<>();
         command.add("docker");
         command.add("run");
         command.add("--rm");
+        command.add("--name");
+        command.add(containerName);
         command.add("--user");
         command.add("0:0");
         command.add("--network");
         command.add("none");
         command.add("--memory");
-        command.add(request.memoryLimitMb() + "m");
+        command.add(memoryLimitMb + "m");
+        command.add("--memory-swap");
+        command.add(memoryLimitMb + "m");
         command.add("--cpus");
         command.add("1");
+        command.add("--pids-limit");
+        command.add("128");
+        command.add("--security-opt");
+        command.add("no-new-privileges");
         command.add("-v");
         command.add(workspace.toAbsolutePath() + ":/workspace");
         command.add("-w");
@@ -113,6 +136,47 @@ public class DockerProjectExecutionClient implements ProjectExecutionClient {
         command.add("-lc");
         command.add(request.command());
         return command;
+    }
+
+    private void cleanupContainer(String containerName) {
+        try {
+            Process cleanup = new ProcessBuilder("docker", "rm", "-f", containerName)
+                    .redirectErrorStream(true)
+                    .start();
+            if (!cleanup.waitFor(5, TimeUnit.SECONDS)) {
+                cleanup.destroyForcibly();
+            }
+        } catch (IOException e) {
+            // Best-effort cleanup only.
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private ProjectExecutionResult internalError(long startedAt, RuntimeException e) {
+        return internalError(startedAt, (Exception)e);
+    }
+
+    private ProjectExecutionResult internalError(long startedAt, Exception e) {
+        return new ProjectExecutionResult(
+                TemplatePracticeSubmissionStatus.INTERNAL_ERROR,
+                -1,
+                "",
+                "",
+                "Project execution failed.",
+                elapsed(startedAt)
+        );
+    }
+
+    private String outputOf(CompletableFuture<String> output) {
+        try {
+            return output.get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "";
+        } catch (ExecutionException | TimeoutException | CompletionException e) {
+            return "";
+        }
     }
 
     private String drain(InputStream inputStream) {

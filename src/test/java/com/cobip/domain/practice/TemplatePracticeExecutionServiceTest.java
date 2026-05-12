@@ -232,6 +232,36 @@ class TemplatePracticeExecutionServiceTest {
         assertThat(progress.getProgressPercent()).isEqualTo(100);
     }
 
+    @Test
+    void submitProjectMissionSavesInternalErrorWithoutCompletingProgress() {
+        User user = user();
+        Template template = template(user);
+        TemplatePracticeMission mission = mission(template, projectValidationJson());
+        TemplatePracticeProgress progress = TemplatePracticeProgress.start(user, template, mission);
+        TemplatePracticeMissionProgress missionProgress = TemplatePracticeMissionProgress.start(user, mission);
+        TemplatePracticeProjectExecutionRequest request = projectRequest();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(templateRepository.findByIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(template));
+        when(missionRepository.findByIdAndTemplateId(20L, 10L)).thenReturn(Optional.of(mission));
+        when(projectExecutionClient.execute(any(ProjectExecutionRequest.class)))
+                .thenReturn(projectResult(TemplatePracticeSubmissionStatus.INTERNAL_ERROR));
+        when(submissionRepository.save(any(TemplatePracticeSubmission.class))).thenAnswer(invocation -> {
+            TemplatePracticeSubmission submission = invocation.getArgument(0);
+            ReflectionTestUtils.setField(submission, "id", 102L);
+            return submission;
+        });
+        when(progressRepository.findByUserIdAndTemplateId(1L, 10L)).thenReturn(Optional.of(progress));
+        when(missionProgressRepository.findByUserIdAndMissionId(1L, 20L)).thenReturn(Optional.of(missionProgress));
+
+        var response = templatePracticeExecutionService.submitProjectMission(user, 10L, 20L, request);
+
+        assertThat(response.getId()).isEqualTo(102L);
+        assertThat(response.getStatus()).isEqualTo(TemplatePracticeSubmissionStatus.INTERNAL_ERROR);
+        assertThat(response.getPassedCount()).isZero();
+        assertThat(response.getTotalCount()).isEqualTo(1);
+        assertThat(missionProgress.getStatus()).isEqualTo(TemplatePracticeMissionProgressStatus.IN_PROGRESS);
+    }
+
     private TemplatePracticeCodeRunRequest runRequest() {
         TemplatePracticeCodeRunRequest request = new TemplatePracticeCodeRunRequest();
         ReflectionTestUtils.setField(request, "language", CodingLanguage.JAVA);
