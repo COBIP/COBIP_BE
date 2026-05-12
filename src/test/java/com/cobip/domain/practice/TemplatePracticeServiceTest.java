@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Optional;
 
+import com.cobip.domain.coding.CodingLanguage;
 import com.cobip.domain.subscription.SubscriptionService;
 import com.cobip.domain.template.Template;
 import com.cobip.domain.template.TemplateAccessLevel;
@@ -21,6 +22,7 @@ import com.cobip.domain.user.UserStatus;
 import com.cobip.dto.practice.TemplatePracticeDetailResponse;
 import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
 import com.cobip.dto.practice.TemplatePracticeProgressResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,12 +51,16 @@ class TemplatePracticeServiceTest {
     private TemplatePracticeMissionProgressRepository missionProgressRepository;
 
     @Mock
+    private TemplatePracticeSubmissionRepository submissionRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
     private SubscriptionService subscriptionService;
 
     private TemplatePracticeService templatePracticeService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
@@ -64,8 +70,10 @@ class TemplatePracticeServiceTest {
                 missionRepository,
                 progressRepository,
                 missionProgressRepository,
+                submissionRepository,
                 userRepository,
-                subscriptionService
+                subscriptionService,
+                objectMapper
         );
     }
 
@@ -76,10 +84,23 @@ class TemplatePracticeServiceTest {
         TemplatePracticeFile file = file(template);
         TemplatePracticeMission mission = mission(template, 1L, 1);
         TemplatePracticeProgress progress = TemplatePracticeProgress.start(owner, template, mission);
+        TemplatePracticeMissionProgress missionProgress = TemplatePracticeMissionProgress.start(owner, mission);
+        missionProgress.changeStatus(TemplatePracticeMissionProgressStatus.COMPLETED);
+        TemplatePracticeSubmission submission = submission(
+                owner,
+                template,
+                mission,
+                """
+                        [{"filePath":"src/main/java/com/example/AuthController.java","content":"class AuthController { void login() {} }"}]
+                        """
+        );
         when(templateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
         when(fileRepository.findByTemplateIdOrderByOrderIndexAscIdAsc(1L)).thenReturn(List.of(file));
         when(missionRepository.findByTemplateIdOrderByOrderIndexAscIdAsc(1L)).thenReturn(List.of(mission));
         when(progressRepository.findByUserIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(progress));
+        when(missionProgressRepository.findByUserIdAndTemplateId(1L, 1L)).thenReturn(List.of(missionProgress));
+        when(submissionRepository.findByUserIdAndTemplateIdOrderByCreatedAtDescIdDesc(1L, 1L))
+                .thenReturn(List.of(submission));
 
         TemplatePracticeDetailResponse response = templatePracticeService.getPractice(owner, 1L);
 
@@ -87,6 +108,10 @@ class TemplatePracticeServiceTest {
         assertThat(response.getFiles()).hasSize(1);
         assertThat(response.getMissions()).hasSize(1);
         assertThat(response.getProgress().getStatus()).isEqualTo(TemplatePracticeProgressStatus.IN_PROGRESS);
+        assertThat(response.getFiles().get(0).getUserContent())
+                .isEqualTo("class AuthController { void login() {} }");
+        assertThat(response.getMissions().get(0).getProgressStatus())
+                .isEqualTo(TemplatePracticeMissionProgressStatus.COMPLETED);
     }
 
     @Test
@@ -157,6 +182,25 @@ class TemplatePracticeServiceTest {
                 .content("class AuthController {}")
                 .readOnly(false)
                 .orderIndex(1)
+                .build();
+    }
+
+    private TemplatePracticeSubmission submission(
+        User user,
+        Template template,
+        TemplatePracticeMission mission,
+        String sourceCode
+    ) {
+        return TemplatePracticeSubmission.builder()
+                .id(1L)
+                .user(user)
+                .template(template)
+                .mission(mission)
+                .language(CodingLanguage.JAVA)
+                .sourceCode(sourceCode)
+                .status(TemplatePracticeSubmissionStatus.ACCEPTED)
+                .passedCount(1)
+                .totalCount(1)
                 .build();
     }
 

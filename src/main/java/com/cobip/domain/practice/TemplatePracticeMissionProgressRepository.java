@@ -1,5 +1,6 @@
 package com.cobip.domain.practice;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,6 +11,18 @@ public interface TemplatePracticeMissionProgressRepository
         extends JpaRepository<TemplatePracticeMissionProgress, Long> {
 
     Optional<TemplatePracticeMissionProgress> findByUserIdAndMissionId(Long userId, Long missionId);
+
+    @Query("""
+            select mp
+            from TemplatePracticeMissionProgress mp
+            join fetch mp.mission
+            where mp.user.id = :userId
+              and mp.mission.template.id = :templateId
+            """)
+    List<TemplatePracticeMissionProgress> findByUserIdAndTemplateId(
+        @Param("userId") Long userId,
+        @Param("templateId") Long templateId
+    );
 
     @Query("""
             select count(mp)

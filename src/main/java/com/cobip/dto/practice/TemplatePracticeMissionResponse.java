@@ -1,6 +1,7 @@
 package com.cobip.dto.practice;
 
 import com.cobip.domain.practice.TemplatePracticeMission;
+import com.cobip.domain.practice.TemplatePracticeMissionProgressStatus;
 import com.cobip.domain.practice.TemplatePracticeMissionType;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -16,8 +17,12 @@ public class TemplatePracticeMissionResponse {
     private final int orderIndex;
     private final String guideContent;
     private final JsonNode validationJson;
+    private final TemplatePracticeMissionProgressStatus progressStatus;
 
-    private TemplatePracticeMissionResponse(TemplatePracticeMission mission) {
+    private TemplatePracticeMissionResponse(
+        TemplatePracticeMission mission,
+        TemplatePracticeMissionProgressStatus progressStatus
+    ) {
         this.id = mission.getId();
         this.title = mission.getTitle();
         this.description = mission.getDescription();
@@ -25,9 +30,17 @@ public class TemplatePracticeMissionResponse {
         this.orderIndex = mission.getOrderIndex();
         this.guideContent = mission.getGuideContent();
         this.validationJson = mission.getValidationJson();
+        this.progressStatus = progressStatus;
     }
 
     public static TemplatePracticeMissionResponse from(TemplatePracticeMission mission) {
-        return new TemplatePracticeMissionResponse(mission);
+        return from(mission, null);
+    }
+
+    public static TemplatePracticeMissionResponse from(
+        TemplatePracticeMission mission,
+        TemplatePracticeMissionProgressStatus progressStatus
+    ) {
+        return new TemplatePracticeMissionResponse(mission, progressStatus);
     }
 }

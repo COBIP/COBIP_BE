@@ -1,6 +1,8 @@
 package com.cobip.domain.practice;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.cobip.domain.subscription.SubscriptionService;
 import com.cobip.domain.template.Template;
@@ -12,6 +14,9 @@ import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
 import com.cobip.dto.practice.TemplatePracticeProgressResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,17 +32,23 @@ public class TemplatePracticeService {
     private final TemplatePracticeMissionRepository missionRepository;
     private final TemplatePracticeProgressRepository progressRepository;
     private final TemplatePracticeMissionProgressRepository missionProgressRepository;
+    private final TemplatePracticeSubmissionRepository submissionRepository;
     private final UserRepository userRepository;
     private final SubscriptionService subscriptionService;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public TemplatePracticeDetailResponse getPractice(User user, Long templateId) {
         Template template = getReadableTemplate(user, templateId);
+        List<TemplatePracticeFile> files = fileRepository.findByTemplateIdOrderByOrderIndexAscIdAsc(template.getId());
+        List<TemplatePracticeMission> missions = missionRepository.findByTemplateIdOrderByOrderIndexAscIdAsc(template.getId());
         return TemplatePracticeDetailResponse.of(
                 template,
-                fileRepository.findByTemplateIdOrderByOrderIndexAscIdAsc(template.getId()),
-                missionRepository.findByTemplateIdOrderByOrderIndexAscIdAsc(template.getId()),
-                findProgress(user, template.getId())
+                files,
+                missions,
+                findProgress(user, template.getId()),
+                findMissionProgresses(user, template.getId()),
+                findUserContentsByFilePath(user, template.getId())
         );
     }
 
@@ -98,6 +109,47 @@ public class TemplatePracticeService {
             return null;
         }
         return progressRepository.findByUserIdAndTemplateId(user.getId(), templateId).orElse(null);
+    }
+
+    private List<TemplatePracticeMissionProgress> findMissionProgresses(User user, Long templateId) {
+        if (user == null) {
+            return List.of();
+        }
+        return missionProgressRepository.findByUserIdAndTemplateId(user.getId(), templateId);
+    }
+
+    private Map<String, String> findUserContentsByFilePath(User user, Long templateId) {
+        if (user == null) {
+            return Map.of();
+        }
+
+        Map<String, String> userContentsByFilePath = new LinkedHashMap<>();
+        submissionRepository.findByUserIdAndTemplateIdOrderByCreatedAtDescIdDesc(user.getId(), templateId)
+                .forEach(submission -> putProjectFilesIfAbsent(
+                        userContentsByFilePath,
+                        submission.getSourceCode()
+                ));
+        return userContentsByFilePath;
+    }
+
+    private void putProjectFilesIfAbsent(Map<String, String> userContentsByFilePath, String sourceCode) {
+        try {
+            JsonNode filesNode = objectMapper.readTree(sourceCode);
+            if (filesNode == null || !filesNode.isArray()) {
+                return;
+            }
+
+            for (JsonNode fileNode : filesNode) {
+                JsonNode filePathNode = fileNode.get("filePath");
+                JsonNode contentNode = fileNode.get("content");
+                if (filePathNode == null || contentNode == null || !filePathNode.isTextual() || !contentNode.isTextual()) {
+                    continue;
+                }
+                userContentsByFilePath.putIfAbsent(filePathNode.asText(), contentNode.asText());
+            }
+        } catch (JsonProcessingException e) {
+            // Single-file submissions are stored as raw source code, so they cannot be mapped to a file path here.
+        }
     }
 
     private Template getReadableTemplate(User user, Long templateId) {
