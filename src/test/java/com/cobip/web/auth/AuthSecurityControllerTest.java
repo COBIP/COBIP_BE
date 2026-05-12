@@ -1,10 +1,12 @@
 package com.cobip.web.auth;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.cobip.domain.oauth.OAuthAuthService;
@@ -39,7 +41,7 @@ import org.springframework.test.web.servlet.MockMvc;
     SecurityConfig.class,
     CorsConfig.class
 })
-@TestPropertySource(properties = "app.cors.allowed-origins=http://localhost:3000")
+@TestPropertySource(properties = "app.cors.allowed-origins=http://localhost:3000,https://cobip.tech")
 class AuthSecurityControllerTest {
 
     @Autowired
@@ -126,6 +128,28 @@ class AuthSecurityControllerTest {
                 .header(HttpHeaders.ORIGIN, "http://localhost:3000")
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void practiceProjectRunPreflightAllowsProductionOrigin() throws Exception {
+        mockMvc.perform(options("/api/v1/templates/1/practice/missions/1/project/run")
+                .header(HttpHeaders.ORIGIN, "https://cobip.tech")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type"))
+            .andExpect(status().isOk())
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://cobip.tech"))
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, containsString("POST")))
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, containsString("authorization")));
+    }
+
+    @Test
+    void unauthorizedPracticeProjectRunResponseIncludesCorsHeader() throws Exception {
+        mockMvc.perform(post("/api/v1/templates/1/practice/missions/1/project/run")
+                .header(HttpHeaders.ORIGIN, "https://cobip.tech")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://cobip.tech"));
     }
 
     @Test
