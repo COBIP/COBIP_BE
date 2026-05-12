@@ -78,9 +78,9 @@ jobs:
       - name: Deploy image on EC2 through SSM
         run: |
           set -euo pipefail
-          APP_HOST_PORT="${APP_HOST_PORT//$'\r'/}"
-          APP_CONTAINER_PORT="${APP_CONTAINER_PORT//$'\r'/}"
-          APP_PRACTICE_WORKDIR="${APP_PRACTICE_WORKDIR//$'\r'/}"
+          APP_HOST_PORT="$(printf '%s' "${APP_HOST_PORT}" | tr -cd '0-9')"
+          APP_CONTAINER_PORT="$(printf '%s' "${APP_CONTAINER_PORT}" | tr -cd '0-9')"
+          APP_PRACTICE_WORKDIR="$(printf '%s' "${APP_PRACTICE_WORKDIR}" | tr -d '\r\n')"
 
           PARAMETERS=$(jq -n \
             --arg region "${AWS_REGION}" \
