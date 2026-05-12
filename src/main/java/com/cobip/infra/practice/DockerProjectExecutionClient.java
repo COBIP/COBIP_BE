@@ -96,6 +96,8 @@ public class DockerProjectExecutionClient implements ProjectExecutionClient {
         command.add("docker");
         command.add("run");
         command.add("--rm");
+        command.add("--user");
+        command.add("0:0");
         command.add("--network");
         command.add("none");
         command.add("--memory");

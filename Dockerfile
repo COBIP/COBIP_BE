@@ -1,5 +1,7 @@
 FROM eclipse-temurin:21-jre-alpine
 
+RUN apk add --no-cache docker-cli
+
 WORKDIR /app
 
 ARG JAR_FILE=build/libs/*.jar

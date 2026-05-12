@@ -1,4 +1,49 @@
 services:
+  app:
+    build:
+      context: .
+    container_name: cobip-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      DB_URL: jdbc:postgresql://postgres:5432/cobip
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=/var/lib/cobip/practice
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS_ENABLE: ${MAIL_SMTP_STARTTLS_ENABLE:-true}
+      MAIL_HEALTH_ENABLED: ${MAIL_HEALTH_ENABLED:-false}
+      GMAIL_SMTP_USERNAME: ${GMAIL_SMTP_USERNAME:-}
+      GMAIL_SMTP_PASSWORD: ${GMAIL_SMTP_PASSWORD:-}
+      NAVER_SMTP_USERNAME: ${NAVER_SMTP_USERNAME:-}
+      NAVER_SMTP_PASSWORD: ${NAVER_SMTP_PASSWORD:-}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY:-}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      JUDGE0_BASE_URL: ${JUDGE0_BASE_URL:-https://ce.judge0.com}
+      JUDGE0_AUTH_HEADER: ${JUDGE0_AUTH_HEADER:-X-Auth-Token}
+      JUDGE0_AUTH_TOKEN: ${JUDGE0_AUTH_TOKEN:-}
+      JUDGE0_POLL_TIMEOUT_MILLIS: ${JUDGE0_POLL_TIMEOUT_MILLIS:-10000}
+      JUDGE0_POLL_INTERVAL_MILLIS: ${JUDGE0_POLL_INTERVAL_MILLIS:-250}
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/cobip/practice:/var/lib/cobip/practice
+
   postgres:
     image: postgres:16-alpine
     container_name: cobip-postgres
