@@ -1,6 +1,7 @@
 package com.cobip.infra.judge0;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 
 import com.cobip.domain.coding.CodeExecutionClient;
@@ -13,9 +14,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 @Component
 public class Judge0CodeExecutionClient implements CodeExecutionClient {
@@ -36,10 +37,18 @@ public class Judge0CodeExecutionClient implements CodeExecutionClient {
         @Value("${app.judge0.base-url:https://ce.judge0.com}") String baseUrl,
         @Value("${app.judge0.auth-header:X-Auth-Token}") String authHeader,
         @Value("${app.judge0.auth-token:}") String authToken,
+        @Value("${app.judge0.connect-timeout-millis:5000}") long connectTimeoutMillis,
+        @Value("${app.judge0.read-timeout-millis:15000}") long readTimeoutMillis,
         @Value("${app.judge0.poll-timeout-millis:10000}") long pollTimeoutMillis,
         @Value("${app.judge0.poll-interval-millis:250}") long pollIntervalMillis
     ) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMillis));
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMillis));
+        this.restClient = restClientBuilder
+                .baseUrl(baseUrl)
+                .requestFactory(requestFactory)
+                .build();
         this.authHeader = authHeader;
         this.authToken = authToken;
         this.pollTimeoutMillis = pollTimeoutMillis;
@@ -71,8 +80,8 @@ public class Judge0CodeExecutionClient implements CodeExecutionClient {
             }
 
             return pollResult(created.token());
-        } catch (RestClientException e) {
-            throw new CustomException(ErrorCode.CODE_EXECUTION_FAILED, e);
+        } catch (RuntimeException e) {
+            return internalError();
         }
     }
 
@@ -113,7 +122,16 @@ public class Judge0CodeExecutionClient implements CodeExecutionClient {
             sleep();
         }
 
-        throw new CustomException(ErrorCode.CODE_EXECUTION_FAILED);
+        return new CodeExecutionResult(
+                CodingSubmissionStatus.INTERNAL_ERROR,
+                token,
+                null,
+                null,
+                null,
+                "Code execution result polling timed out.",
+                null,
+                null
+        );
     }
 
     private SubmissionResultResponse getSubmission(String token) {
@@ -141,6 +159,19 @@ public class Judge0CodeExecutionClient implements CodeExecutionClient {
             Thread.currentThread().interrupt();
             throw new CustomException(ErrorCode.CODE_EXECUTION_FAILED, e);
         }
+    }
+
+    private CodeExecutionResult internalError() {
+        return new CodeExecutionResult(
+                CodingSubmissionStatus.INTERNAL_ERROR,
+                null,
+                null,
+                null,
+                null,
+                "Code execution failed.",
+                null,
+                null
+        );
     }
 
     private int languageId(CodingLanguage language) {
