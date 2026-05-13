@@ -1,141 +1,66 @@
 package com.cobip.domain.run;
 
+import com.cobip.domain.coding.CodeExecutionClient;
+import com.cobip.domain.coding.CodeExecutionResult;
+import com.cobip.domain.coding.CodingLanguage;
+import com.cobip.global.exception.CustomException;
+import com.cobip.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.io.*;
-import java.util.concurrent.TimeUnit;
+import java.util.Locale;
 
 @Service
+@RequiredArgsConstructor
 public class CodeRunService {
 
-    private static final int TIME_LIMIT = 3; // 실행 시간 제한 (초)
-    private static final int MAX_OUTPUT_LENGTH = 1000; // 출력 길이 제한
+    private static final int TIME_LIMIT_MILLIS = 3000;
+    private static final int MEMORY_LIMIT_MB = 128;
 
-    // Python 실행
-    public String runPythonWithInput(String code, String input) throws Exception {
+    private final CodeExecutionClient codeExecutionClient;
 
-        ProcessBuilder pb = new ProcessBuilder("python", "-c", code);
-        pb.redirectErrorStream(true);
-
-        Process process = pb.start();
-
-        // 입력 전달
-        try (BufferedWriter writer = new BufferedWriter(
-                new OutputStreamWriter(process.getOutputStream()))) {
-            writer.write(input);
-            writer.newLine();
-            writer.flush();
+    public String runWithInput(String language, String code, String input) {
+        if (code == null || code.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
-
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream())
+        CodeExecutionResult result = codeExecutionClient.execute(
+                parseLanguage(language),
+                code,
+                input == null ? "" : input,
+                null,
+                TIME_LIMIT_MILLIS,
+                MEMORY_LIMIT_MB
         );
-
-        // 🔥 출력 제한 적용
-        StringBuilder output = new StringBuilder();
-        String line;
-
-        while ((line = reader.readLine()) != null) {
-            if (output.length() + line.length() > MAX_OUTPUT_LENGTH) {
-                output.append("\n[출력 제한 초과]");
-                break;
-            }
-            output.append(line).append("\n");
-        }
-
-        // 🔥 시간 제한 적용
-        boolean finished = process.waitFor(TIME_LIMIT, TimeUnit.SECONDS);
-
-        if (!finished) {
-            process.destroyForcibly();
-            return "시간 초과";
-        }
-
-        return output.toString().trim();
+        return outputText(result);
     }
 
-    // Java 실행
-    public String runJavaWithInput(String code, String input) throws Exception {
-
-        String dir = System.getProperty("java.io.tmpdir");
-        File javaFile = new File(dir, "Main.java");
-
-        // 파일 생성
-        try (FileWriter writer = new FileWriter(javaFile)) {
-            writer.write(code);
+    private CodingLanguage parseLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
-
-        // 컴파일
-        Process compile = new ProcessBuilder("javac", javaFile.getAbsolutePath())
-                .redirectErrorStream(true)
-                .start();
-
-        BufferedReader compileReader = new BufferedReader(
-                new InputStreamReader(compile.getInputStream())
-        );
-
-        StringBuilder compileOutput = new StringBuilder();
-        String line;
-
-        while ((line = compileReader.readLine()) != null) {
-            compileOutput.append(line).append("\n");
+        try {
+            return CodingLanguage.valueOf(language.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, e);
         }
-
-        compile.waitFor();
-
-        // 컴파일 실패
-        if (compile.exitValue() != 0) {
-            return compileOutput.toString().trim();
-        }
-
-        // 실행
-        Process run = new ProcessBuilder("java", "-cp", dir, "Main")
-                .redirectErrorStream(true)
-                .start();
-
-        // 입력 전달
-        try (BufferedWriter writer = new BufferedWriter(
-                new OutputStreamWriter(run.getOutputStream()))) {
-            writer.write(input);
-            writer.newLine();
-            writer.flush();
-        }
-
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(run.getInputStream())
-        );
-
-        // 🔥 출력 제한 적용
-        StringBuilder output = new StringBuilder();
-
-        while ((line = reader.readLine()) != null) {
-            if (output.length() + line.length() > MAX_OUTPUT_LENGTH) {
-                output.append("\n[출력 제한 초과]");
-                break;
-            }
-            output.append(line).append("\n");
-        }
-
-        // 🔥 시간 제한 적용
-        boolean finished = run.waitFor(TIME_LIMIT, TimeUnit.SECONDS);
-
-        if (!finished) {
-            run.destroyForcibly();
-            return "시간 초과";
-        }
-
-        return output.toString().trim();
     }
 
-    // 언어 분기
-    public String runWithInput(String language, String code, String input) throws Exception {
+    private String outputText(CodeExecutionResult result) {
+        String output = firstPresent(
+                result.stdout(),
+                result.compileOutput(),
+                result.stderr(),
+                result.message()
+        );
+        return output == null ? "" : output.trim();
+    }
 
-        if ("python".equalsIgnoreCase(language)) {
-            return runPythonWithInput(code, input);
-        } else if ("java".equalsIgnoreCase(language)) {
-            return runJavaWithInput(code, input);
-        } else {
-            throw new IllegalArgumentException("지원하지 않는 언어");
+    private String firstPresent(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
         }
+        return null;
     }
 }
