@@ -1,0 +1,147 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    branches:
+      - develop
+      - main
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+  APP_CONTAINER_NAME: ${{ vars.APP_CONTAINER_NAME || 'cobip-app' }}
+  APP_DOCKER_NETWORK: ${{ vars.APP_DOCKER_NETWORK || 'cobip_be_default' }}
+  APP_ENV_FILE: ${{ vars.APP_ENV_FILE || '/etc/cobip/cobip.env' }}
+  APP_HOST_PORT: ${{ vars.APP_HOST_PORT || '8080' }}
+  APP_CONTAINER_PORT: ${{ vars.APP_CONTAINER_PORT || '8080' }}
+  APP_PRACTICE_WORKDIR: ${{ vars.APP_PRACTICE_WORKDIR || '/var/lib/cobip/practice' }}
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Build boot jar
+        run: ./gradlew bootJar
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Log in to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          docker build -t "${IMAGE_URI}" .
+          docker push "${IMAGE_URI}"
+          echo "IMAGE_URI=${IMAGE_URI}" >> "$GITHUB_ENV"
+          echo "ECR_REGISTRY=${ECR_REGISTRY}" >> "$GITHUB_ENV"
+
+      - name: Deploy image on EC2 through SSM
+        run: |
+          set -euo pipefail
+          APP_HOST_PORT="$(printf '%s' "${APP_HOST_PORT}" | tr -cd '0-9')"
+          APP_CONTAINER_PORT="$(printf '%s' "${APP_CONTAINER_PORT}" | tr -cd '0-9')"
+          APP_PRACTICE_WORKDIR="$(printf '%s' "${APP_PRACTICE_WORKDIR}" | tr -d '\r\n')"
+
+          PARAMETERS=$(jq -n \
+            --arg region "${AWS_REGION}" \
+            --arg registry "${ECR_REGISTRY}" \
+            --arg image "${IMAGE_URI}" \
+            --arg container "${APP_CONTAINER_NAME}" \
+            --arg network "${APP_DOCKER_NETWORK}" \
+            --arg env_file "${APP_ENV_FILE}" \
+            --arg host_port "${APP_HOST_PORT}" \
+            --arg container_port "${APP_CONTAINER_PORT}" \
+            --arg practice_workdir "${APP_PRACTICE_WORKDIR}" \
+            '{
+              commands: [
+                "set -eu",
+                ("AWS_REGION=" + ($region | @sh)),
+                ("ECR_REGISTRY=" + ($registry | @sh)),
+                ("IMAGE_URI=" + ($image | @sh)),
+                ("CONTAINER_NAME=" + ($container | @sh)),
+                ("DOCKER_NETWORK=" + ($network | @sh)),
+                ("ENV_FILE=" + ($env_file | @sh)),
+                ("HOST_PORT=" + ($host_port | @sh)),
+                ("CONTAINER_PORT=" + ($container_port | @sh)),
+                ("PRACTICE_WORKDIR=" + ($practice_workdir | @sh)),
+                "echo \"Deploying image: $IMAGE_URI\"",
+                "aws ecr get-login-password --region \"$AWS_REGION\" | docker login --username AWS --password-stdin \"$ECR_REGISTRY\"",
+                "docker pull \"$IMAGE_URI\"",
+                "docker pull gradle:8.14-jdk21",
+                "mkdir -p \"$PRACTICE_WORKDIR\"",
+                "chmod 1777 \"$PRACTICE_WORKDIR\"",
+                "PREVIOUS_IMAGE=$(docker inspect -f \"{{.Config.Image}}\" \"$CONTAINER_NAME\" 2>/dev/null || true)",
+                "docker stop \"$CONTAINER_NAME\" || true",
+                "docker rm \"$CONTAINER_NAME\" || true",
+                "if ! docker run -d --name \"$CONTAINER_NAME\" --restart unless-stopped --env-file \"$ENV_FILE\" --network \"$DOCKER_NETWORK\" --network-alias app -p \"$HOST_PORT:$CONTAINER_PORT\" -v /var/run/docker.sock:/var/run/docker.sock -v \"$PRACTICE_WORKDIR:$PRACTICE_WORKDIR\" --env \"JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=$PRACTICE_WORKDIR\" \"$IMAGE_URI\"; then echo \"docker run failed for $IMAGE_URI\"; if [ -n \"$PREVIOUS_IMAGE\" ]; then echo \"rolling back to $PREVIOUS_IMAGE\"; docker run -d --name \"$CONTAINER_NAME\" --restart unless-stopped --env-file \"$ENV_FILE\" --network \"$DOCKER_NETWORK\" --network-alias app -p \"$HOST_PORT:$CONTAINER_PORT\" -v /var/run/docker.sock:/var/run/docker.sock -v \"$PRACTICE_WORKDIR:$PRACTICE_WORKDIR\" --env \"JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=$PRACTICE_WORKDIR\" \"$PREVIOUS_IMAGE\" || true; fi; exit 1; fi",
+                "HEALTH_URL=http://localhost:$HOST_PORT/actuator/health",
+                "for i in $(seq 1 30); do curl -fsS \"$HEALTH_URL\" && break; sleep 2; done",
+                "curl -fsS \"$HEALTH_URL\"",
+                "docker image prune -f"
+              ]
+            }')
+
+          COMMAND_ID=$(aws ssm send-command \
+            --region "${AWS_REGION}" \
+            --instance-ids "${EC2_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy COBIP backend" \
+            --parameters "${PARAMETERS}" \
+            --query "Command.CommandId" \
+            --output text)
+
+          set +e
+          aws ssm wait command-executed \
+            --region "${AWS_REGION}" \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${EC2_INSTANCE_ID}"
+          WAIT_STATUS=$?
+          set -e
+
+          aws ssm get-command-invocation \
+            --region "${AWS_REGION}" \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${EC2_INSTANCE_ID}" \
+            --query "{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}"
+
+          exit "${WAIT_STATUS}"

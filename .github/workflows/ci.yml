@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cobip
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cobip"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      SPRING_PROFILES_ACTIVE: local
+      DB_URL: jdbc:postgresql://localhost:5432/cobip
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET_KEY: local-development-jwt-secret-key-change-me-32-bytes
+      MAIL_HEALTH_ENABLED: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Check Gradle wrapper
+        id: gradle-wrapper
+        run: |
+          if [ -f ./gradlew ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Gradle wrapper not found; skipping tests for workflow-only branch."
+          fi
+
+      - name: Make Gradle wrapper executable
+        if: steps.gradle-wrapper.outputs.exists == 'true'
+        run: chmod +x ./gradlew
+
+      - name: Run tests
+        if: steps.gradle-wrapper.outputs.exists == 'true'
+        run: ./gradlew test
