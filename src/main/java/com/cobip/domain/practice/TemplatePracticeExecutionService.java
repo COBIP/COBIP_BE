@@ -35,6 +35,9 @@ public class TemplatePracticeExecutionService {
 
     private static final int DEFAULT_TIME_LIMIT_MILLIS = 5000;
     private static final int DEFAULT_MEMORY_LIMIT_MB = 128;
+    private static final int DEFAULT_PROJECT_MEMORY_LIMIT_MB = 1024;
+    private static final int PROJECT_RUN_MAX_TIME_LIMIT_MILLIS = 3500;
+    private static final int PROJECT_SUBMISSION_MAX_TIME_LIMIT_MILLIS = 3500;
     private static final String DEFAULT_PROJECT_IMAGE = "gradle:8.14-jdk21";
     private static final String DEFAULT_PROJECT_COMMAND = "gradle test --no-daemon";
 
@@ -140,7 +143,8 @@ public class TemplatePracticeExecutionService {
         ProjectExecutionResult result = projectExecutionClient.execute(projectRequest(
                 mission.getValidationJson(),
                 request,
-                "runCommand"
+                "runCommand",
+                PROJECT_RUN_MAX_TIME_LIMIT_MILLIS
         ));
         return TemplatePracticeProjectRunResponse.from(result);
     }
@@ -158,7 +162,8 @@ public class TemplatePracticeExecutionService {
         ProjectExecutionResult result = projectExecutionClient.execute(projectRequest(
                 mission.getValidationJson(),
                 request,
-                "testCommand"
+                "testCommand",
+                PROJECT_SUBMISSION_MAX_TIME_LIMIT_MILLIS
         ));
 
         TemplatePracticeSubmissionStatus finalStatus = result.status();
@@ -236,7 +241,8 @@ public class TemplatePracticeExecutionService {
     private ProjectExecutionRequest projectRequest(
         JsonNode validationJson,
         TemplatePracticeProjectExecutionRequest request,
-        String commandField
+        String commandField,
+        int maxTimeLimitMillis
     ) {
         String command = textValue(validationJson, commandField, DEFAULT_PROJECT_COMMAND);
         String dockerImage = textValue(validationJson, "dockerImage", DEFAULT_PROJECT_IMAGE);
@@ -246,8 +252,8 @@ public class TemplatePracticeExecutionService {
                         .toList(),
                 command,
                 dockerImage,
-                intValue(validationJson, "timeLimitMillis", DEFAULT_TIME_LIMIT_MILLIS),
-                intValue(validationJson, "memoryLimitMb", DEFAULT_MEMORY_LIMIT_MB)
+                cappedIntValue(validationJson, "timeLimitMillis", maxTimeLimitMillis, maxTimeLimitMillis),
+                intValue(validationJson, "memoryLimitMb", DEFAULT_PROJECT_MEMORY_LIMIT_MB)
         );
     }
 
@@ -331,6 +337,10 @@ public class TemplatePracticeExecutionService {
             return defaultValue;
         }
         return value.asInt(defaultValue);
+    }
+
+    private int cappedIntValue(JsonNode node, String fieldName, int defaultValue, int maxValue) {
+        return Math.max(1, Math.min(intValue(node, fieldName, defaultValue), maxValue));
     }
 
     private String normalizeInput(String input) {

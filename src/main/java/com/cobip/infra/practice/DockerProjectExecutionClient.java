@@ -31,6 +31,9 @@ import org.springframework.util.FileSystemUtils;
 public class DockerProjectExecutionClient implements ProjectExecutionClient {
 
     private static final int MAX_OUTPUT_BYTES = 20000;
+    private static final long OUTPUT_TIMEOUT_MILLIS = 1000;
+    private static final long TIMEOUT_OUTPUT_TIMEOUT_MILLIS = 100;
+    private static final long CLEANUP_TIMEOUT_SECONDS = 1;
 
     @Override
     public ProjectExecutionResult execute(ProjectExecutionRequest request) {
@@ -46,12 +49,11 @@ public class DockerProjectExecutionClient implements ProjectExecutionClient {
 
             if (!finished) {
                 process.destroyForcibly();
-                cleanupContainer(containerName);
                 return new ProjectExecutionResult(
                         TemplatePracticeSubmissionStatus.TIME_LIMIT_EXCEEDED,
                         -1,
-                        outputOf(stdout),
-                        outputOf(stderr),
+                        outputOf(stdout, TIMEOUT_OUTPUT_TIMEOUT_MILLIS),
+                        outputOf(stderr, TIMEOUT_OUTPUT_TIMEOUT_MILLIS),
                         "Project execution timed out.",
                         elapsed(startedAt)
                 );
@@ -63,8 +65,8 @@ public class DockerProjectExecutionClient implements ProjectExecutionClient {
                             ? TemplatePracticeSubmissionStatus.ACCEPTED
                             : TemplatePracticeSubmissionStatus.RUNTIME_ERROR,
                     exitCode,
-                    outputOf(stdout),
-                    outputOf(stderr),
+                    outputOf(stdout, OUTPUT_TIMEOUT_MILLIS),
+                    outputOf(stderr, OUTPUT_TIMEOUT_MILLIS),
                     null,
                     elapsed(startedAt)
             );
@@ -143,7 +145,7 @@ public class DockerProjectExecutionClient implements ProjectExecutionClient {
             Process cleanup = new ProcessBuilder("docker", "rm", "-f", containerName)
                     .redirectErrorStream(true)
                     .start();
-            if (!cleanup.waitFor(5, TimeUnit.SECONDS)) {
+            if (!cleanup.waitFor(CLEANUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 cleanup.destroyForcibly();
             }
         } catch (IOException e) {
@@ -168,9 +170,9 @@ public class DockerProjectExecutionClient implements ProjectExecutionClient {
         );
     }
 
-    private String outputOf(CompletableFuture<String> output) {
+    private String outputOf(CompletableFuture<String> output, long timeoutMillis) {
         try {
-            return output.get(1, TimeUnit.SECONDS);
+            return output.get(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return "";
