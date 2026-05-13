@@ -11,12 +11,16 @@ import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.activity.ActivityType;
 import com.cobip.domain.learning.LearningProgress;
 import com.cobip.domain.learning.LearningProgressRepository;
+import com.cobip.domain.learning.UserLearningDailyStat;
+import com.cobip.domain.learning.UserLearningDailyStatRepository;
 import com.cobip.domain.subscription.Subscription;
 import com.cobip.domain.subscription.SubscriptionRepository;
 import com.cobip.domain.template.TemplateFavoriteRepository;
 import com.cobip.domain.template.TemplateRepository;
 import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.dto.mypage.ActivityHistoryResponse;
+import com.cobip.dto.mypage.LearningActivityHeartbeatRequest;
+import com.cobip.dto.mypage.LearningActivityHeartbeatResponse;
 import com.cobip.dto.mypage.LearningProgressResponse;
 import com.cobip.dto.mypage.MyDashboardResponse;
 import com.cobip.dto.mypage.SubscriptionResponse;
@@ -47,6 +51,7 @@ public class MyPageService {
     private final TemplateRepository templateRepository;
     private final TemplateFavoriteRepository templateFavoriteRepository;
     private final LearningProgressRepository learningProgressRepository;
+    private final UserLearningDailyStatRepository userLearningDailyStatRepository;
     private final ActivityHistoryRepository activityHistoryRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final PasswordEncoder passwordEncoder;
@@ -119,6 +124,24 @@ public class MyPageService {
         return PageResponse.from(progresses);
     }
 
+    @Transactional
+    public LearningActivityHeartbeatResponse recordLearningActivityHeartbeat(
+        User user,
+        LearningActivityHeartbeatRequest request
+    ) {
+        User managedUser = getManagedUser(user);
+        LocalDate activityDate = LocalDate.now();
+        long activeSeconds = request.getActiveSeconds();
+
+        userLearningDailyStatRepository.addStudySeconds(managedUser.getId(), activityDate, activeSeconds);
+        long studySeconds = userLearningDailyStatRepository
+                .findByUserIdAndActivityDate(managedUser.getId(), activityDate)
+                .map(UserLearningDailyStat::getStudySeconds)
+                .orElse(activeSeconds);
+
+        return new LearningActivityHeartbeatResponse(activityDate, studySeconds);
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<ActivityHistoryResponse> getActivities(User user, Pageable pageable) {
         Page<ActivityHistoryResponse> activities = activityHistoryRepository
@@ -150,7 +173,8 @@ public class MyPageService {
     @Transactional(readOnly = true)
     public MyDashboardResponse getDashboard(User user) {
         List<LearningProgress> progresses = learningProgressRepository.findByUserId(user.getId());
-        long totalStudySeconds = progresses.stream().mapToLong(LearningProgress::getStudySeconds).sum();
+        long totalStudySeconds = progresses.stream().mapToLong(LearningProgress::getStudySeconds).sum()
+                + userLearningDailyStatRepository.sumStudySecondsByUserId(user.getId());
         int solvedCount = progresses.stream().mapToInt(LearningProgress::getSolvedCount).sum();
         int correctCount = progresses.stream().mapToInt(LearningProgress::getCorrectCount).sum();
         double averageCorrectRate = solvedCount == 0 ? 0 : (double) correctCount / solvedCount;
@@ -199,15 +223,26 @@ public class MyPageService {
                         startDate.atStartOfDay(),
                         today.plusDays(1).atStartOfDay()
                 );
+        List<UserLearningDailyStat> dailyStats = userLearningDailyStatRepository
+                .findByUserIdAndActivityDateBetween(user.getId(), startDate, today);
         Map<LocalDate, Long> countsByDate = histories.stream()
                 .collect(Collectors.groupingBy(
                         history -> history.getCreatedAt().toLocalDate(),
                         Collectors.counting()
                 ));
+        Map<LocalDate, Long> studySecondsByDate = dailyStats.stream()
+                .collect(Collectors.groupingBy(
+                        UserLearningDailyStat::getActivityDate,
+                        Collectors.summingLong(UserLearningDailyStat::getStudySeconds)
+                ));
 
         return LongStream.rangeClosed(0, 6)
                 .mapToObj(startDate::plusDays)
-                .map(date -> new WeeklyActivityResponse(date, countsByDate.getOrDefault(date, 0L)))
+                .map(date -> new WeeklyActivityResponse(
+                        date,
+                        countsByDate.getOrDefault(date, 0L),
+                        studySecondsByDate.getOrDefault(date, 0L)
+                ))
                 .toList();
     }
 

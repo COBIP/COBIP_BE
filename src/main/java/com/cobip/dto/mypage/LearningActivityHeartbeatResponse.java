@@ -5,15 +5,13 @@ import java.time.LocalDate;
 import lombok.Getter;
 
 @Getter
-public class WeeklyActivityResponse {
+public class LearningActivityHeartbeatResponse {
 
     private final LocalDate date;
-    private final long activityCount;
     private final long studySeconds;
 
-    public WeeklyActivityResponse(LocalDate date, long activityCount, long studySeconds) {
+    public LearningActivityHeartbeatResponse(LocalDate date, long studySeconds) {
         this.date = date;
-        this.activityCount = activityCount;
         this.studySeconds = studySeconds;
     }
 }
