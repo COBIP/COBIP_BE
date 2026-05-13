@@ -11,6 +11,7 @@ import com.cobip.domain.activity.ActivityHistory;
 import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.activity.ActivityType;
 import com.cobip.domain.learning.LearningProgressRepository;
+import com.cobip.domain.learning.UserLearningDailyStatRepository;
 import com.cobip.domain.subscription.SubscriptionRepository;
 import com.cobip.domain.template.TemplateFavoriteRepository;
 import com.cobip.domain.template.TemplateRepository;
@@ -43,6 +44,9 @@ class UserWithdrawalServiceTest {
     private LearningProgressRepository learningProgressRepository;
 
     @Mock
+    private UserLearningDailyStatRepository userLearningDailyStatRepository;
+
+    @Mock
     private ActivityHistoryRepository activityHistoryRepository;
 
     @Mock
@@ -60,6 +64,7 @@ class UserWithdrawalServiceTest {
                 templateRepository,
                 templateFavoriteRepository,
                 learningProgressRepository,
+                userLearningDailyStatRepository,
                 activityHistoryRepository,
                 subscriptionRepository,
                 passwordEncoder

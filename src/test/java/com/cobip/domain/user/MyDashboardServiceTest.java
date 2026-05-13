@@ -14,6 +14,8 @@ import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.activity.ActivityType;
 import com.cobip.domain.learning.LearningProgress;
 import com.cobip.domain.learning.LearningProgressRepository;
+import com.cobip.domain.learning.UserLearningDailyStat;
+import com.cobip.domain.learning.UserLearningDailyStatRepository;
 import com.cobip.domain.subscription.SubscriptionRepository;
 import com.cobip.domain.template.Template;
 import com.cobip.domain.template.TemplateAccessLevel;
@@ -49,6 +51,9 @@ class MyDashboardServiceTest {
     private LearningProgressRepository learningProgressRepository;
 
     @Mock
+    private UserLearningDailyStatRepository userLearningDailyStatRepository;
+
+    @Mock
     private ActivityHistoryRepository activityHistoryRepository;
 
     @Mock
@@ -66,6 +71,7 @@ class MyDashboardServiceTest {
                 templateRepository,
                 templateFavoriteRepository,
                 learningProgressRepository,
+                userLearningDailyStatRepository,
                 activityHistoryRepository,
                 subscriptionRepository,
                 passwordEncoder
@@ -80,7 +86,9 @@ class MyDashboardServiceTest {
         LocalDate today = LocalDate.now();
         ActivityHistory yesterdayActivity = activity(user, today.minusDays(1).atTime(10, 0));
         ActivityHistory todayActivity = activity(user, today.atTime(11, 0));
+        UserLearningDailyStat todayStat = dailyStat(user, today, 1800);
         when(learningProgressRepository.findByUserId(1L)).thenReturn(List.of(progress));
+        when(userLearningDailyStatRepository.sumStudySecondsByUserId(1L)).thenReturn(1800L);
         when(learningProgressRepository.findTop5ByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of(progress));
         when(activityHistoryRepository.findTop10ByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(todayActivity));
         when(activityHistoryRepository.findByUserIdAndCreatedAtBetweenOrderByCreatedAtAsc(
@@ -88,6 +96,11 @@ class MyDashboardServiceTest {
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
         )).thenReturn(List.of(yesterdayActivity, todayActivity));
+        when(userLearningDailyStatRepository.findByUserIdAndActivityDateBetween(
+                eq(1L),
+                eq(today.minusDays(6)),
+                eq(today)
+        )).thenReturn(List.of(todayStat));
         when(templateRepository.findByDeletedAtIsNullAndVisibilityOrderByFavoriteCountDescViewCountDesc(
                 eq(TemplateVisibility.PUBLIC),
                 any(PageRequest.class)
@@ -97,11 +110,13 @@ class MyDashboardServiceTest {
 
         assertThat(response.getContinueLearning()).isNotNull();
         assertThat(response.getContinueLearning().getTemplateId()).isEqualTo(1L);
+        assertThat(response.getTotalStudySeconds()).isEqualTo(5400);
         assertThat(response.getWeeklyActivities()).hasSize(7);
         assertThat(response.getWeeklyActivities().get(5).getDate()).isEqualTo(today.minusDays(1));
         assertThat(response.getWeeklyActivities().get(5).getActivityCount()).isEqualTo(1);
         assertThat(response.getWeeklyActivities().get(6).getDate()).isEqualTo(today);
         assertThat(response.getWeeklyActivities().get(6).getActivityCount()).isEqualTo(1);
+        assertThat(response.getWeeklyActivities().get(6).getStudySeconds()).isEqualTo(1800);
     }
 
     private ActivityHistory activity(User user, LocalDateTime createdAt) {
@@ -128,6 +143,15 @@ class MyDashboardServiceTest {
                 .correctCount(8)
                 .studySeconds(3600)
                 .lastAccessedAt(LocalDateTime.now())
+                .build();
+    }
+
+    private UserLearningDailyStat dailyStat(User user, LocalDate activityDate, long studySeconds) {
+        return UserLearningDailyStat.builder()
+                .id(1L)
+                .user(user)
+                .activityDate(activityDate)
+                .studySeconds(studySeconds)
                 .build();
     }
 

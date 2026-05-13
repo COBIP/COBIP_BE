@@ -7,12 +7,14 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.cobip.domain.certificate.CertificateService;
 import com.cobip.domain.user.MyPageService;
 import com.cobip.domain.user.User;
+import com.cobip.dto.mypage.LearningActivityHeartbeatRequest;
 import com.cobip.dto.user.MyProfileUpdateRequest;
 import com.cobip.dto.user.PasswordChangeRequest;
 import com.cobip.dto.user.UserWithdrawalRequest;
@@ -129,6 +131,25 @@ class UserControllerTest {
         mockMvc.perform(get("/api/v1/users/me/certificates"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isArray());
+    }
+
+    @Test
+    void learningActivityHeartbeatAcceptsPostRequest() throws Exception {
+        when(myPageService.recordLearningActivityHeartbeat(
+                isNull(User.class),
+                any(LearningActivityHeartbeatRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/users/me/learning-activities/heartbeat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "templateId": 1,
+                              "activeSeconds": 30
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
