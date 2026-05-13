@@ -4,14 +4,18 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
 
 import com.cobip.domain.grammar.GrammarTemplateDifficulty;
+import com.cobip.domain.grammar.GrammarTemplateExecutionService;
 import com.cobip.domain.grammar.GrammarTemplateLanguage;
 import com.cobip.domain.grammar.GrammarTemplateService;
+import com.cobip.dto.grammar.GrammarTemplateCodeRunRequest;
+import com.cobip.dto.grammar.GrammarTemplateExecutionFlowRequest;
 import com.cobip.dto.grammar.GrammarTemplatePublicSummaryResponse;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.security.JwtAuthenticationFilter;
@@ -35,6 +39,9 @@ class GrammarTemplateControllerTest {
 
     @MockitoBean
     private GrammarTemplateService grammarTemplateService;
+
+    @MockitoBean
+    private GrammarTemplateExecutionService grammarTemplateExecutionService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -79,6 +86,47 @@ class GrammarTemplateControllerTest {
         when(grammarTemplateService.getPublishedGrammarTemplate(1L)).thenReturn(null);
 
         mockMvc.perform(get("/api/v1/grammar-templates/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void runChapterAcceptsCodeRunRequest() throws Exception {
+        when(grammarTemplateExecutionService.runChapter(
+                eq(1L),
+                eq(10L),
+                any(GrammarTemplateCodeRunRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/grammar-templates/1/chapters/10/run")
+                        .contentType("application/json")
+                        .content("""
+                            {
+                              "language": "PYTHON",
+                              "sourceCode": "print(10)",
+                              "input": ""
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void executionFlowAcceptsSourceCodeRequest() throws Exception {
+        when(grammarTemplateExecutionService.getExecutionFlow(
+                eq(1L),
+                eq(10L),
+                any(GrammarTemplateExecutionFlowRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/grammar-templates/1/chapters/10/execution-flow")
+                        .contentType("application/json")
+                        .content("""
+                            {
+                              "language": "PYTHON",
+                              "sourceCode": "x = 10\\nprint(x)"
+                            }
+                            """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
