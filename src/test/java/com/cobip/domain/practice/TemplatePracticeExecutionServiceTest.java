@@ -186,6 +186,8 @@ class TemplatePracticeExecutionServiceTest {
         ArgumentCaptor<ProjectExecutionRequest> captor = ArgumentCaptor.forClass(ProjectExecutionRequest.class);
         verify(projectExecutionClient).execute(captor.capture());
         assertThat(captor.getValue().command()).isEqualTo("gradle bootRun --no-daemon");
+        assertThat(captor.getValue().timeLimitMillis()).isEqualTo(3500);
+        assertThat(captor.getValue().memoryLimitMb()).isEqualTo(512);
         assertThat(captor.getValue().files()).hasSize(2);
         assertThat(response.getStatus()).isEqualTo(TemplatePracticeSubmissionStatus.ACCEPTED);
     }
@@ -224,6 +226,8 @@ class TemplatePracticeExecutionServiceTest {
         ArgumentCaptor<ProjectExecutionRequest> captor = ArgumentCaptor.forClass(ProjectExecutionRequest.class);
         verify(projectExecutionClient).execute(captor.capture());
         assertThat(captor.getValue().command()).isEqualTo("gradle test --no-daemon");
+        assertThat(captor.getValue().timeLimitMillis()).isEqualTo(3500);
+        assertThat(captor.getValue().memoryLimitMb()).isEqualTo(512);
         assertThat(response.getId()).isEqualTo(101L);
         assertThat(response.getStatus()).isEqualTo(TemplatePracticeSubmissionStatus.ACCEPTED);
         assertThat(response.getPassedCount()).isEqualTo(1);
