@@ -66,8 +66,20 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Check Gradle wrapper
+        id: gradle-wrapper
+        run: |
+          if [ -f ./gradlew ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Gradle wrapper not found; skipping tests for workflow-only branch."
+          fi
+
       - name: Make Gradle wrapper executable
+        if: steps.gradle-wrapper.outputs.exists == 'true'
         run: chmod +x ./gradlew
 
       - name: Run tests
+        if: steps.gradle-wrapper.outputs.exists == 'true'
         run: ./gradlew test
