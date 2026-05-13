@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -86,7 +87,7 @@ public class S3Service {
             s3Client.putObject(request, RequestBody.fromBytes(file.getBytes()));
             String url = s3Client.utilities().getUrl(builder -> builder.bucket(bucket).key(key)).toString();
             return new S3UploadResult(key, url);
-        } catch (IOException e) {
+        } catch (IOException | SdkException e) {
             throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED, e);
         }
     }
