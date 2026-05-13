@@ -36,8 +36,8 @@ public class TemplatePracticeExecutionService {
     private static final int DEFAULT_TIME_LIMIT_MILLIS = 5000;
     private static final int DEFAULT_MEMORY_LIMIT_MB = 128;
     private static final int DEFAULT_PROJECT_MEMORY_LIMIT_MB = 1024;
-    private static final int PROJECT_RUN_MAX_TIME_LIMIT_MILLIS = 3500;
-    private static final int PROJECT_SUBMISSION_MAX_TIME_LIMIT_MILLIS = 3500;
+    private static final int PROJECT_RUN_MAX_TIME_LIMIT_MILLIS = 60000;
+    private static final int PROJECT_SUBMISSION_MAX_TIME_LIMIT_MILLIS = 60000;
     private static final String DEFAULT_PROJECT_IMAGE = "gradle:8.14-jdk21";
     private static final String DEFAULT_PROJECT_COMMAND = "gradle test --no-daemon";
 
