@@ -76,11 +76,9 @@ app:
     password-reset:
       code-expiration-millis: ${PASSWORD_RESET_CODE_EXPIRATION:300000}
       verified-expiration-millis: ${PASSWORD_RESET_VERIFIED_EXPIRATION:1800000}
-  judge0:
-    base-url: ${JUDGE0_BASE_URL:https://ce.judge0.com}
-    auth-header: ${JUDGE0_AUTH_HEADER:X-Auth-Token}
-    auth-token: ${JUDGE0_AUTH_TOKEN:}
-    connect-timeout-millis: ${JUDGE0_CONNECT_TIMEOUT_MILLIS:5000}
-    read-timeout-millis: ${JUDGE0_READ_TIMEOUT_MILLIS:15000}
-    poll-timeout-millis: ${JUDGE0_POLL_TIMEOUT_MILLIS:10000}
-    poll-interval-millis: ${JUDGE0_POLL_INTERVAL_MILLIS:250}
+  code-execution:
+    docker:
+      python-image: ${CODE_EXECUTION_PYTHON_IMAGE:python:3.12-alpine}
+      javascript-image: ${CODE_EXECUTION_JAVASCRIPT_IMAGE:node:22-alpine}
+      java-image: ${CODE_EXECUTION_JAVA_IMAGE:eclipse-temurin:21-jdk-alpine}
+      timeout-padding-millis: ${CODE_EXECUTION_TIMEOUT_PADDING_MILLIS:5000}
