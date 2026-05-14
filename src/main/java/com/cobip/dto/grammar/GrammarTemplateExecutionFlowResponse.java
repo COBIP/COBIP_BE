@@ -22,11 +22,29 @@ public class GrammarTemplateExecutionFlowResponse {
         CodingLanguage language,
         List<ExecutionFlowStep> steps
     ) {
+        this(
+                templateId,
+                chapterId,
+                language,
+                "STATIC_LINE_SEQUENCE",
+                "Static line-order flow with inferred variable and output states. It is not a runtime debugger trace.",
+                steps
+        );
+    }
+
+    public GrammarTemplateExecutionFlowResponse(
+        Long templateId,
+        Long chapterId,
+        CodingLanguage language,
+        String traceMode,
+        String message,
+        List<ExecutionFlowStep> steps
+    ) {
         this.templateId = templateId;
         this.chapterId = chapterId;
         this.language = language;
-        this.traceMode = "STATIC_LINE_SEQUENCE";
-        this.message = "Static line-order flow with inferred variable and output states. It is not a runtime debugger trace.";
+        this.traceMode = traceMode;
+        this.message = message;
         this.steps = steps;
     }
 
@@ -86,6 +104,8 @@ public class GrammarTemplateExecutionFlowResponse {
         private final String changeType;
         private final int lineNumber;
         private final int stepOrder;
+        private final List<String> elements;
+        private final Integer activeIndex;
 
         public VariableSnapshot(
             String name,
@@ -96,6 +116,20 @@ public class GrammarTemplateExecutionFlowResponse {
             int lineNumber,
             int stepOrder
         ) {
+            this(name, value, expression, dataType, changeType, lineNumber, stepOrder, List.of(), null);
+        }
+
+        public VariableSnapshot(
+            String name,
+            String value,
+            String expression,
+            String dataType,
+            String changeType,
+            int lineNumber,
+            int stepOrder,
+            List<String> elements,
+            Integer activeIndex
+        ) {
             this.name = name;
             this.value = value;
             this.expression = expression;
@@ -103,6 +137,8 @@ public class GrammarTemplateExecutionFlowResponse {
             this.changeType = changeType;
             this.lineNumber = lineNumber;
             this.stepOrder = stepOrder;
+            this.elements = elements == null ? List.of() : List.copyOf(elements);
+            this.activeIndex = activeIndex;
         }
     }
 
