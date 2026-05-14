@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import com.cobip.domain.coding.CodeExecutionClient;
 import com.cobip.domain.coding.CodeExecutionResult;
 import com.cobip.domain.coding.CodingLanguage;
+import com.cobip.domain.coding.CodingSubmissionStatus;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunRequest;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunResponse;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowRequest;
@@ -44,6 +45,7 @@ public class GrammarTemplateExecutionService {
     private final GrammarTemplateRepository grammarTemplateRepository;
     private final GrammarTemplateChapterRepository grammarTemplateChapterRepository;
     private final CodeExecutionClient codeExecutionClient;
+    private final JavaRuntimeExecutionFlowTracer javaRuntimeExecutionFlowTracer = new JavaRuntimeExecutionFlowTracer();
 
     @Transactional(readOnly = true)
     public GrammarTemplateCodeRunResponse runChapter(
@@ -70,6 +72,19 @@ public class GrammarTemplateExecutionService {
         GrammarTemplateExecutionFlowRequest request
     ) {
         validatePublishedChapter(templateId, chapterId);
+        if (request.getLanguage() == CodingLanguage.JAVA) {
+            List<ExecutionFlowStep> runtimeSteps = buildJavaRuntimeFlow(request.getSourceCode());
+            if (!runtimeSteps.isEmpty()) {
+                return new GrammarTemplateExecutionFlowResponse(
+                        templateId,
+                        chapterId,
+                        request.getLanguage(),
+                        "JAVA_RUNTIME_TRACE",
+                        "Runtime trace captured from instrumented Java execution.",
+                        runtimeSteps
+                );
+            }
+        }
         return new GrammarTemplateExecutionFlowResponse(
                 templateId,
                 chapterId,
@@ -83,6 +98,22 @@ public class GrammarTemplateExecutionService {
                 .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_NOT_FOUND));
         grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(chapterId, templateId)
                 .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_CHAPTER_NOT_FOUND));
+    }
+
+    private List<ExecutionFlowStep> buildJavaRuntimeFlow(String sourceCode) {
+        CodeExecutionResult result = codeExecutionClient.execute(
+                CodingLanguage.JAVA,
+                javaRuntimeExecutionFlowTracer.instrument(sourceCode),
+                "",
+                null,
+                DEFAULT_TIME_LIMIT_MILLIS,
+                DEFAULT_MEMORY_LIMIT_MB
+        );
+        if (result == null || result.status() == CodingSubmissionStatus.COMPILE_ERROR
+                || result.status() == CodingSubmissionStatus.INTERNAL_ERROR) {
+            return List.of();
+        }
+        return javaRuntimeExecutionFlowTracer.buildSteps(sourceCode, result.stdout());
     }
 
     private List<ExecutionFlowStep> buildStaticLineFlow(CodingLanguage language, String sourceCode) {
