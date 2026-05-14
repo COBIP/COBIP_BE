@@ -89,8 +89,57 @@ class GrammarTemplateExecutionServiceTest {
         assertThat(response.getSteps()).hasSize(2);
         assertThat(response.getSteps().getFirst().getLineNumber()).isEqualTo(1);
         assertThat(response.getSteps().getFirst().getEventType()).isEqualTo("ASSIGNMENT");
+        assertThat(response.getSteps().getFirst().getActiveVariable().getName()).isEqualTo("x");
+        assertThat(response.getSteps().getFirst().getActiveVariable().getValue()).isEqualTo("10");
         assertThat(response.getSteps().get(1).getLineNumber()).isEqualTo(2);
         assertThat(response.getSteps().get(1).getEventType()).isEqualTo("OUTPUT");
+        assertThat(response.getSteps().get(1).getActiveOutput().getValue()).isEqualTo("10");
+        assertThat(response.getSteps().get(1).getVariables()).hasSize(1);
+        assertThat(response.getSteps().get(1).getOutputs()).hasSize(1);
+    }
+
+    @Test
+    void getExecutionFlowInfersUpdatedVariableState() {
+        GrammarTemplate template = template();
+        GrammarTemplateChapter chapter = chapter(template);
+        GrammarTemplateExecutionFlowRequest request = new GrammarTemplateExecutionFlowRequest();
+        ReflectionTestUtils.setField(request, "language", CodingLanguage.PYTHON);
+        ReflectionTestUtils.setField(request, "sourceCode", "x = 10\nx = x + 5\nprint(x)");
+        when(grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(1L, GrammarTemplateStatus.PUBLISHED))
+                .thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+
+        var response = grammarTemplateExecutionService.getExecutionFlow(1L, 10L, request);
+
+        assertThat(response.getSteps()).hasSize(3);
+        assertThat(response.getSteps().get(1).getActiveVariable().getChangeType()).isEqualTo("UPDATED");
+        assertThat(response.getSteps().get(1).getActiveVariable().getValue()).isEqualTo("15");
+        assertThat(response.getSteps().get(2).getVariables().getFirst().getValue()).isEqualTo("15");
+        assertThat(response.getSteps().get(2).getActiveOutput().getValue()).isEqualTo("15");
+    }
+
+    @Test
+    void getExecutionFlowInfersJavaStringOutput() {
+        GrammarTemplate template = template();
+        GrammarTemplateChapter chapter = chapter(template);
+        GrammarTemplateExecutionFlowRequest request = new GrammarTemplateExecutionFlowRequest();
+        ReflectionTestUtils.setField(request, "language", CodingLanguage.JAVA);
+        ReflectionTestUtils.setField(
+                request,
+                "sourceCode",
+                "String name = \"COBIP\";\nSystem.out.println(\"Hello, \" + name);"
+        );
+        when(grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(1L, GrammarTemplateStatus.PUBLISHED))
+                .thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+
+        var response = grammarTemplateExecutionService.getExecutionFlow(1L, 10L, request);
+
+        assertThat(response.getSteps()).hasSize(2);
+        assertThat(response.getSteps().getFirst().getActiveVariable().getDataType()).isEqualTo("String");
+        assertThat(response.getSteps().get(1).getActiveOutput().getValue()).isEqualTo("Hello, COBIP");
     }
 
     @Test
