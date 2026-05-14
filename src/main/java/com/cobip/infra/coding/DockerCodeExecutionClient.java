@@ -157,7 +157,7 @@ public class DockerCodeExecutionClient implements CodeExecutionClient {
         command.add("/workspace");
         command.add(imageFor(language));
         command.add("sh");
-        command.add("-lc");
+        command.add("-c");
         command.add(executionCommand(language));
         return command;
     }
