@@ -12,6 +12,7 @@ import com.cobip.domain.coding.CodeExecutionClient;
 import com.cobip.domain.coding.CodeExecutionResult;
 import com.cobip.domain.coding.CodingLanguage;
 import com.cobip.domain.coding.CodingSubmissionStatus;
+import com.cobip.domain.learning.GrammarLearningProgressService;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunRequest;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowRequest;
 import com.cobip.global.exception.CustomException;
@@ -37,6 +38,9 @@ class GrammarTemplateExecutionServiceTest {
     @Mock
     private CodeExecutionClient codeExecutionClient;
 
+    @Mock
+    private GrammarLearningProgressService grammarLearningProgressService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private GrammarTemplateExecutionService grammarTemplateExecutionService;
@@ -46,7 +50,8 @@ class GrammarTemplateExecutionServiceTest {
         grammarTemplateExecutionService = new GrammarTemplateExecutionService(
                 grammarTemplateRepository,
                 grammarTemplateChapterRepository,
-                codeExecutionClient
+                codeExecutionClient,
+                grammarLearningProgressService
         );
     }
 
@@ -68,7 +73,7 @@ class GrammarTemplateExecutionServiceTest {
                 eq(128)
         )).thenReturn(result());
 
-        var response = grammarTemplateExecutionService.runChapter(1L, 10L, request);
+        var response = grammarTemplateExecutionService.runChapter(null, 1L, 10L, request);
 
         assertThat(response.getStatus()).isEqualTo(CodingSubmissionStatus.ACCEPTED);
         assertThat(response.getStdout()).isEqualTo("10");
@@ -84,7 +89,7 @@ class GrammarTemplateExecutionServiceTest {
         when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(chapter));
 
-        var response = grammarTemplateExecutionService.getExecutionFlow(1L, 10L, request);
+        var response = grammarTemplateExecutionService.getExecutionFlow(null, 1L, 10L, request);
 
         assertThat(response.getTraceMode()).isEqualTo("STATIC_LINE_SEQUENCE");
         assertThat(response.getSteps()).hasSize(2);
@@ -111,7 +116,7 @@ class GrammarTemplateExecutionServiceTest {
         when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(chapter));
 
-        var response = grammarTemplateExecutionService.getExecutionFlow(1L, 10L, request);
+        var response = grammarTemplateExecutionService.getExecutionFlow(null, 1L, 10L, request);
 
         assertThat(response.getSteps()).hasSize(3);
         assertThat(response.getSteps().get(1).getActiveVariable().getChangeType()).isEqualTo("UPDATED");
@@ -136,7 +141,7 @@ class GrammarTemplateExecutionServiceTest {
         when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(chapter));
 
-        var response = grammarTemplateExecutionService.getExecutionFlow(1L, 10L, request);
+        var response = grammarTemplateExecutionService.getExecutionFlow(null, 1L, 10L, request);
 
         assertThat(response.getSteps()).hasSize(2);
         assertThat(response.getSteps().getFirst().getActiveVariable().getDataType()).isEqualTo("String");
@@ -174,7 +179,7 @@ class GrammarTemplateExecutionServiceTest {
                 eq(128)
         )).thenReturn(runtimeTraceResult());
 
-        var response = grammarTemplateExecutionService.getExecutionFlow(1L, 10L, request);
+        var response = grammarTemplateExecutionService.getExecutionFlow(null, 1L, 10L, request);
 
         assertThat(response.getTraceMode()).isEqualTo("JAVA_RUNTIME_TRACE");
         assertThat(response.getSteps()).hasSize(4);
@@ -190,7 +195,7 @@ class GrammarTemplateExecutionServiceTest {
         when(grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(1L, GrammarTemplateStatus.PUBLISHED))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> grammarTemplateExecutionService.runChapter(1L, 10L, runRequest()))
+        assertThatThrownBy(() -> grammarTemplateExecutionService.runChapter(null, 1L, 10L, runRequest()))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.GRAMMAR_TEMPLATE_NOT_FOUND);
