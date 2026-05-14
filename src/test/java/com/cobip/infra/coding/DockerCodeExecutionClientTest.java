@@ -28,6 +28,7 @@ class DockerCodeExecutionClientTest {
 
         assertThat(command).containsSubsequence("docker", "run", "--rm");
         assertThat(command).contains("--network", "none", "--memory", "128m", "--pids-limit", "128");
+        assertThat(command).containsSubsequence("python:3.12-alpine", "sh", "-c", "python /workspace/main.py");
         assertThat(command).contains("-i", "python:3.12-alpine", "python /workspace/main.py");
     }
 
