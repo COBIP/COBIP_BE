@@ -42,6 +42,8 @@ class JavaRuntimeExecutionFlowTracer {
 class __CobipTrace {
     private static final String PREFIX = "__COBIP_TRACE__";
     private static final int LIMIT = 300;
+    private static final String LINE_SEPARATOR = System.lineSeparator();
+    private static final StringBuilder output = new StringBuilder();
     private static int count = 0;
 
     static void line(int line) {
@@ -83,11 +85,24 @@ class __CobipTrace {
                 + "}");
     }
 
-    static <T> T output(int line, T value) {
+    static void print(int line, Object value) {
+        emitOutput(line, formatValue(value), "");
+    }
+
+    static void println(int line) {
+        emitOutput(line, "", LINE_SEPARATOR);
+    }
+
+    static void println(int line, Object value) {
+        emitOutput(line, formatValue(value), LINE_SEPARATOR);
+    }
+
+    private static void emitOutput(int line, String value, String suffix) {
+        output.append(value).append(suffix);
         emit("{\\"type\\":\\"OUTPUT\\",\\"lineNumber\\":" + line
-                + ",\\"value\\":" + quote(formatValue(value))
+                + ",\\"value\\":" + quote(value)
+                + ",\\"output\\":" + quote(output.toString())
                 + "}");
-        return value;
     }
 
     private static void emit(String json) {
@@ -269,10 +284,15 @@ class __CobipTrace {
         }
         String indent = matcher.group(1);
         String method = matcher.group(2);
-        String expression = matcher.group(3);
+        String expression = matcher.group(3).strip();
         String suffix = matcher.group(4);
-        return Optional.of(indent + "System.out." + method + "(__CobipTrace.output(" + lineNumber + ", "
-                + expression + "))" + suffix);
+        if ("println".equals(method) && expression.isBlank()) {
+            return Optional.of(indent + "__CobipTrace.println(" + lineNumber + ")" + suffix);
+        }
+        if (expression.isBlank()) {
+            return Optional.of(indent + "__CobipTrace.print(" + lineNumber + ", \"\")" + suffix);
+        }
+        return Optional.of(indent + "__CobipTrace." + method + "(" + lineNumber + ", " + expression + ")" + suffix);
     }
 
     private String blockLine(String line, String trimmedLine, int lineNumber) {
@@ -403,7 +423,7 @@ class __CobipTrace {
             return Optional.empty();
         }
         return Optional.of(new OutputSnapshot(
-                event.path("value").asText(),
+                event.has("output") ? event.path("output").asText() : event.path("value").asText(),
                 sourceLine.strip(),
                 lineNumber,
                 stepOrder
