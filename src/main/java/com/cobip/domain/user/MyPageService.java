@@ -1,14 +1,19 @@
 package com.cobip.domain.user;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import com.cobip.domain.activity.ActivityHistory;
 import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.activity.ActivityType;
+import com.cobip.domain.learning.GrammarLearningProgressRepository;
+import com.cobip.domain.learning.GrammarLearningProgressService;
+import com.cobip.domain.learning.LearningContentType;
 import com.cobip.domain.learning.LearningProgress;
 import com.cobip.domain.learning.LearningProgressRepository;
 import com.cobip.domain.learning.UserLearningDailyStat;
@@ -51,6 +56,8 @@ public class MyPageService {
     private final TemplateRepository templateRepository;
     private final TemplateFavoriteRepository templateFavoriteRepository;
     private final LearningProgressRepository learningProgressRepository;
+    private final GrammarLearningProgressRepository grammarLearningProgressRepository;
+    private final GrammarLearningProgressService grammarLearningProgressService;
     private final UserLearningDailyStatRepository userLearningDailyStatRepository;
     private final ActivityHistoryRepository activityHistoryRepository;
     private final SubscriptionRepository subscriptionRepository;
@@ -133,6 +140,14 @@ public class MyPageService {
         LocalDate activityDate = LocalDate.now();
         long activeSeconds = request.getActiveSeconds();
 
+        if (request.getContentTypeOrDefault() == LearningContentType.GRAMMAR_TEMPLATE) {
+            grammarLearningProgressService.recordAccess(
+                    managedUser,
+                    request.getTemplateId(),
+                    request.getChapterId(),
+                    activeSeconds
+            );
+        }
         userLearningDailyStatRepository.addStudySeconds(managedUser.getId(), activityDate, activeSeconds);
         long studySeconds = userLearningDailyStatRepository
                 .findByUserIdAndActivityDate(managedUser.getId(), activityDate)
@@ -180,10 +195,14 @@ public class MyPageService {
         double averageCorrectRate = solvedCount == 0 ? 0 : (double) correctCount / solvedCount;
 
         List<LearningProgressResponse> recentLearning = learningProgressRepository
-                .findTop5ByUserIdOrderByLastAccessedAtDesc(user.getId())
-                .stream()
+                .findTop5ByUserIdOrderByLastAccessedAtDesc(user.getId()).stream()
                 .map(LearningProgressResponse::from)
                 .toList();
+        List<LearningProgressResponse> recentGrammarLearning = grammarLearningProgressRepository
+                .findTop5ByUserIdOrderByLastAccessedAtDesc(user.getId()).stream()
+                .map(LearningProgressResponse::from)
+                .toList();
+        List<LearningProgressResponse> mergedRecentLearning = mergeRecentLearning(recentLearning, recentGrammarLearning);
         List<ActivityHistoryResponse> recentActivities = activityHistoryRepository
                 .findTop10ByUserIdOrderByCreatedAtDesc(user.getId())
                 .stream()
@@ -201,17 +220,33 @@ public class MyPageService {
 
         return new MyDashboardResponse(
                 templateRepository.countByOwnerIdAndDeletedAtIsNull(user.getId()),
-                learningProgressRepository.countByUserIdAndProgressPercentLessThan(user.getId(), 100),
-                learningProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(user.getId(), 100),
+                learningProgressRepository.countByUserIdAndProgressPercentLessThan(user.getId(), 100)
+                        + grammarLearningProgressRepository.countByUserIdAndProgressPercentLessThan(user.getId(), 100),
+                learningProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(user.getId(), 100)
+                        + grammarLearningProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(user.getId(), 100),
                 totalStudySeconds,
                 averageCorrectRate,
                 getSubscription(user),
-                recentLearning.isEmpty() ? null : recentLearning.getFirst(),
+                mergedRecentLearning.isEmpty() ? null : mergedRecentLearning.getFirst(),
                 weeklyActivities,
                 popularTemplates,
-                recentLearning,
+                mergedRecentLearning,
                 recentActivities
         );
+    }
+
+    private List<LearningProgressResponse> mergeRecentLearning(
+        List<LearningProgressResponse> templateLearning,
+        List<LearningProgressResponse> grammarLearning
+    ) {
+        return Stream.concat(templateLearning.stream(), grammarLearning.stream())
+                .sorted((left, right) -> lastAccessedAt(right).compareTo(lastAccessedAt(left)))
+                .limit(5)
+                .toList();
+    }
+
+    private LocalDateTime lastAccessedAt(LearningProgressResponse progress) {
+        return progress.getLastAccessedAt() == null ? LocalDateTime.MIN : progress.getLastAccessedAt();
     }
 
     private List<WeeklyActivityResponse> getWeeklyActivities(User user) {

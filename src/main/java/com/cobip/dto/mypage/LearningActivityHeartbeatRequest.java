@@ -1,5 +1,7 @@
 package com.cobip.dto.mypage;
 
+import com.cobip.domain.learning.LearningContentType;
+
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -11,8 +13,17 @@ public class LearningActivityHeartbeatRequest {
     @Positive(message = "templateId must be positive.")
     private Long templateId;
 
+    private LearningContentType contentType;
+
+    @Positive(message = "chapterId must be positive.")
+    private Long chapterId;
+
     @NotNull(message = "activeSeconds is required.")
     @Positive(message = "activeSeconds must be positive.")
     @Max(value = 60, message = "activeSeconds must be 60 or less.")
     private Integer activeSeconds;
+
+    public LearningContentType getContentTypeOrDefault() {
+        return contentType == null ? LearningContentType.TEMPLATE : contentType;
+    }
 }

@@ -11,6 +11,8 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import com.cobip.domain.activity.ActivityHistoryRepository;
+import com.cobip.domain.learning.GrammarLearningProgressRepository;
+import com.cobip.domain.learning.GrammarLearningProgressService;
 import com.cobip.domain.learning.LearningProgressRepository;
 import com.cobip.domain.learning.UserLearningDailyStat;
 import com.cobip.domain.learning.UserLearningDailyStatRepository;
@@ -49,6 +51,12 @@ class MyPageServiceTest {
     private LearningProgressRepository learningProgressRepository;
 
     @Mock
+    private GrammarLearningProgressRepository grammarLearningProgressRepository;
+
+    @Mock
+    private GrammarLearningProgressService grammarLearningProgressService;
+
+    @Mock
     private UserLearningDailyStatRepository userLearningDailyStatRepository;
 
     @Mock
@@ -69,6 +77,8 @@ class MyPageServiceTest {
                 templateRepository,
                 templateFavoriteRepository,
                 learningProgressRepository,
+                grammarLearningProgressRepository,
+                grammarLearningProgressService,
                 userLearningDailyStatRepository,
                 activityHistoryRepository,
                 subscriptionRepository,

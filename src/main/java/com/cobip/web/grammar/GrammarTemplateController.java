@@ -6,6 +6,7 @@ import com.cobip.domain.grammar.GrammarTemplateDifficulty;
 import com.cobip.domain.grammar.GrammarTemplateExecutionService;
 import com.cobip.domain.grammar.GrammarTemplateLanguage;
 import com.cobip.domain.grammar.GrammarTemplateService;
+import com.cobip.domain.user.User;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunRequest;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunResponse;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowRequest;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -66,23 +68,25 @@ public class GrammarTemplateController {
 
     @PostMapping("/{templateId}/chapters/{chapterId}/run")
     public ResponseEntity<ApiResponse<GrammarTemplateCodeRunResponse>> runChapter(
+        @AuthenticationPrincipal User user,
         @PathVariable Long templateId,
         @PathVariable Long chapterId,
         @RequestBody @Valid GrammarTemplateCodeRunRequest request
     ) {
         return ResponseEntity.ok(ApiResponse.success(
-                grammarTemplateExecutionService.runChapter(templateId, chapterId, request)
+                grammarTemplateExecutionService.runChapter(user, templateId, chapterId, request)
         ));
     }
 
     @PostMapping("/{templateId}/chapters/{chapterId}/execution-flow")
     public ResponseEntity<ApiResponse<GrammarTemplateExecutionFlowResponse>> getExecutionFlow(
+        @AuthenticationPrincipal User user,
         @PathVariable Long templateId,
         @PathVariable Long chapterId,
         @RequestBody @Valid GrammarTemplateExecutionFlowRequest request
     ) {
         return ResponseEntity.ok(ApiResponse.success(
-                grammarTemplateExecutionService.getExecutionFlow(templateId, chapterId, request)
+                grammarTemplateExecutionService.getExecutionFlow(user, templateId, chapterId, request)
         ));
     }
 }

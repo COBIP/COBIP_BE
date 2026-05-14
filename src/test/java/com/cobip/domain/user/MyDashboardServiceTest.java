@@ -12,6 +12,8 @@ import java.util.List;
 import com.cobip.domain.activity.ActivityHistory;
 import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.activity.ActivityType;
+import com.cobip.domain.learning.GrammarLearningProgressRepository;
+import com.cobip.domain.learning.GrammarLearningProgressService;
 import com.cobip.domain.learning.LearningProgress;
 import com.cobip.domain.learning.LearningProgressRepository;
 import com.cobip.domain.learning.UserLearningDailyStat;
@@ -51,6 +53,12 @@ class MyDashboardServiceTest {
     private LearningProgressRepository learningProgressRepository;
 
     @Mock
+    private GrammarLearningProgressRepository grammarLearningProgressRepository;
+
+    @Mock
+    private GrammarLearningProgressService grammarLearningProgressService;
+
+    @Mock
     private UserLearningDailyStatRepository userLearningDailyStatRepository;
 
     @Mock
@@ -71,6 +79,8 @@ class MyDashboardServiceTest {
                 templateRepository,
                 templateFavoriteRepository,
                 learningProgressRepository,
+                grammarLearningProgressRepository,
+                grammarLearningProgressService,
                 userLearningDailyStatRepository,
                 activityHistoryRepository,
                 subscriptionRepository,
@@ -90,6 +100,7 @@ class MyDashboardServiceTest {
         when(learningProgressRepository.findByUserId(1L)).thenReturn(List.of(progress));
         when(userLearningDailyStatRepository.sumStudySecondsByUserId(1L)).thenReturn(1800L);
         when(learningProgressRepository.findTop5ByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of(progress));
+        when(grammarLearningProgressRepository.findTop5ByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of());
         when(activityHistoryRepository.findTop10ByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(todayActivity));
         when(activityHistoryRepository.findByUserIdAndCreatedAtBetweenOrderByCreatedAtAsc(
                 eq(1L),

@@ -13,6 +13,8 @@ import com.cobip.domain.coding.CodeExecutionClient;
 import com.cobip.domain.coding.CodeExecutionResult;
 import com.cobip.domain.coding.CodingLanguage;
 import com.cobip.domain.coding.CodingSubmissionStatus;
+import com.cobip.domain.learning.GrammarLearningProgressService;
+import com.cobip.domain.user.User;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunRequest;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunResponse;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowRequest;
@@ -45,15 +47,18 @@ public class GrammarTemplateExecutionService {
     private final GrammarTemplateRepository grammarTemplateRepository;
     private final GrammarTemplateChapterRepository grammarTemplateChapterRepository;
     private final CodeExecutionClient codeExecutionClient;
+    private final GrammarLearningProgressService grammarLearningProgressService;
     private final JavaRuntimeExecutionFlowTracer javaRuntimeExecutionFlowTracer = new JavaRuntimeExecutionFlowTracer();
 
-    @Transactional(readOnly = true)
+    @Transactional
     public GrammarTemplateCodeRunResponse runChapter(
+        User user,
         Long templateId,
         Long chapterId,
         GrammarTemplateCodeRunRequest request
     ) {
         validatePublishedChapter(templateId, chapterId);
+        grammarLearningProgressService.recordAccess(user, templateId, chapterId, 0);
         CodeExecutionResult result = codeExecutionClient.execute(
                 request.getLanguage(),
                 request.getSourceCode(),
@@ -65,13 +70,15 @@ public class GrammarTemplateExecutionService {
         return GrammarTemplateCodeRunResponse.from(result);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public GrammarTemplateExecutionFlowResponse getExecutionFlow(
+        User user,
         Long templateId,
         Long chapterId,
         GrammarTemplateExecutionFlowRequest request
     ) {
         validatePublishedChapter(templateId, chapterId);
+        grammarLearningProgressService.recordAccess(user, templateId, chapterId, 0);
         if (request.getLanguage() == CodingLanguage.JAVA) {
             List<ExecutionFlowStep> runtimeSteps = buildJavaRuntimeFlow(request.getSourceCode());
             if (!runtimeSteps.isEmpty()) {

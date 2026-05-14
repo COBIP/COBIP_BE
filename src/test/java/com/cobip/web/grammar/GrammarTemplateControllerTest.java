@@ -93,6 +93,7 @@ class GrammarTemplateControllerTest {
     @Test
     void runChapterAcceptsCodeRunRequest() throws Exception {
         when(grammarTemplateExecutionService.runChapter(
+                any(),
                 eq(1L),
                 eq(10L),
                 any(GrammarTemplateCodeRunRequest.class)
@@ -114,6 +115,7 @@ class GrammarTemplateControllerTest {
     @Test
     void executionFlowAcceptsSourceCodeRequest() throws Exception {
         when(grammarTemplateExecutionService.getExecutionFlow(
+                any(),
                 eq(1L),
                 eq(10L),
                 any(GrammarTemplateExecutionFlowRequest.class)
