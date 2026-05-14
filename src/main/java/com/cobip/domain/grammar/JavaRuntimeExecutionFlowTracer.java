@@ -231,6 +231,9 @@ class __CobipTrace {
         List<ExecutionFlowStep> steps = new ArrayList<>();
 
         for (JsonNode event : events) {
+            if (!shouldExposeEvent(event)) {
+                continue;
+            }
             int stepOrder = steps.size() + 1;
             int lineNumber = event.path("lineNumber").asInt(1);
             String sourceLine = sourceLine(sourceLines, lineNumber);
@@ -297,8 +300,11 @@ class __CobipTrace {
 
     private String blockLine(String line, String trimmedLine, int lineNumber) {
         if (isLoopLine(trimmedLine) && line.contains("{")) {
-            return injectAfterOpeningBrace(line, "__CobipTrace.loop(" + lineNumber + ");"
-                    + loopVariableTrace(trimmedLine, lineNumber));
+            String loopVariableTrace = loopVariableTrace(trimmedLine, lineNumber);
+            String trace = loopVariableTrace.isBlank()
+                    ? "__CobipTrace.loop(" + lineNumber + ");"
+                    : loopVariableTrace;
+            return injectAfterOpeningBrace(line, trace);
         }
         if (isConditionLine(trimmedLine) && line.contains("{")) {
             return injectAfterOpeningBrace(line, "__CobipTrace.condition(" + lineNumber + ");");
@@ -384,6 +390,18 @@ class __CobipTrace {
             }
         }
         return events;
+    }
+
+    private boolean shouldExposeEvent(JsonNode event) {
+        if (!"OUTPUT".equals(event.path("type").asText())) {
+            return true;
+        }
+        String value = event.path("value").asText("");
+        if (!value.isBlank()) {
+            return true;
+        }
+        String output = event.path("output").asText("");
+        return output.endsWith("\n") || output.endsWith("\r");
     }
 
     private Optional<VariableSnapshot> variableSnapshot(
