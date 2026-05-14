@@ -81,7 +81,7 @@ class JavaRuntimeExecutionFlowTracerTest {
         assertThat(steps).isNotEmpty();
         assertThat(steps)
                 .filteredOn(step -> "OUTPUT".equals(step.getEventType()))
-                .hasSize(40);
+                .hasSize(30);
         assertThat(steps)
                 .filteredOn(step -> step.getActiveVariable() != null)
                 .extracting(step -> step.getActiveVariable().getName())
@@ -93,6 +93,46 @@ class JavaRuntimeExecutionFlowTracerTest {
                         "  *****",
                         " *******",
                         "*********") + System.lineSeparator());
+    }
+
+    @Test
+    void buildStepsSuppressesInvisiblePyramidNoise() throws Exception {
+        JavaRuntimeExecutionFlowTracer tracer = new JavaRuntimeExecutionFlowTracer();
+        String sourceCode = """
+                public class Main {
+                    public static void main(String[] args) {
+                        int n = 3;
+
+                        for (int i = 1; i <= n; i++) {
+                            for (int j = 1; j <= n - i; j++) {
+                                System.out.print(" ");
+                            }
+
+                            for (int j = 1; j <= 2 * i - 1; j++) {
+                                System.out.print("*");
+                            }
+
+                            System.out.println();
+                        }
+                    }
+                }
+                """;
+        String stdout = compileAndRun(tracer, sourceCode);
+
+        List<ExecutionFlowStep> steps = tracer.buildSteps(sourceCode, stdout);
+        List<ExecutionFlowStep> outputSteps = steps.stream()
+                .filter(step -> "OUTPUT".equals(step.getEventType()))
+                .toList();
+
+        assertThat(steps)
+                .filteredOn(step -> "LOOP".equals(step.getEventType()))
+                .isEmpty();
+        assertThat(outputSteps.getFirst().getStepOrder()).isLessThanOrEqualTo(6);
+        assertThat(outputSteps.getFirst().getActiveOutput().getValue()).isEqualTo("  *");
+        assertThat(outputSteps)
+                .allSatisfy(step -> assertThat(step.getActiveOutput().getValue()).isNotBlank());
+        assertThat(steps.getLast().getOutputs().getLast().getValue())
+                .isEqualTo(String.join(System.lineSeparator(), "  *", " ***", "*****") + System.lineSeparator());
     }
 
     private String compileAndRun(JavaRuntimeExecutionFlowTracer tracer, String sourceCode) throws Exception {
