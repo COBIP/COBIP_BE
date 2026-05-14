@@ -2,6 +2,7 @@ package com.cobip.domain.grammar;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -143,6 +144,48 @@ class GrammarTemplateExecutionServiceTest {
     }
 
     @Test
+    void getExecutionFlowUsesJavaRuntimeTraceWhenAvailable() {
+        GrammarTemplate template = template();
+        GrammarTemplateChapter chapter = chapter(template);
+        GrammarTemplateExecutionFlowRequest request = new GrammarTemplateExecutionFlowRequest();
+        ReflectionTestUtils.setField(request, "language", CodingLanguage.JAVA);
+        ReflectionTestUtils.setField(
+                request,
+                "sourceCode",
+                "public class Main {\n"
+                        + "    public static void main(String[] args) {\n"
+                        + "        int[] arr = {3, 1, 2};\n"
+                        + "        for (int i = 0; i < arr.length; i++) {\n"
+                        + "            arr[i] = arr[i] + 1;\n"
+                        + "        }\n"
+                        + "    }\n"
+                        + "}"
+        );
+        when(grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(1L, GrammarTemplateStatus.PUBLISHED))
+                .thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+        when(codeExecutionClient.execute(
+                eq(CodingLanguage.JAVA),
+                contains("__CobipTrace"),
+                eq(""),
+                eq(null),
+                eq(5000),
+                eq(128)
+        )).thenReturn(runtimeTraceResult());
+
+        var response = grammarTemplateExecutionService.getExecutionFlow(1L, 10L, request);
+
+        assertThat(response.getTraceMode()).isEqualTo("JAVA_RUNTIME_TRACE");
+        assertThat(response.getSteps()).hasSize(4);
+        assertThat(response.getSteps().getFirst().getActiveVariable().getElements()).containsExactly("3", "1", "2");
+        assertThat(response.getSteps().get(1).getEventType()).isEqualTo("LOOP");
+        assertThat(response.getSteps().get(2).getActiveVariable().getName()).isEqualTo("i");
+        assertThat(response.getSteps().get(3).getActiveVariable().getActiveIndex()).isZero();
+        assertThat(response.getSteps().get(3).getActiveVariable().getElements()).containsExactly("4", "1", "2");
+    }
+
+    @Test
     void runChapterRejectsUnpublishedTemplate() {
         when(grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(1L, GrammarTemplateStatus.PUBLISHED))
                 .thenReturn(Optional.empty());
@@ -170,6 +213,22 @@ class GrammarTemplateExecutionServiceTest {
 
     private CodeExecutionResult result() {
         return new CodeExecutionResult(CodingSubmissionStatus.ACCEPTED, "token", "10", null, null, null, "0.01", 1024);
+    }
+
+    private CodeExecutionResult runtimeTraceResult() {
+        String stdout = String.join("\n",
+                JavaRuntimeExecutionFlowTracer.TRACE_PREFIX
+                        + "{\"type\":\"VARIABLE\",\"lineNumber\":3,\"name\":\"arr\",\"value\":\"[3, 1, 2]\","
+                        + "\"dataType\":\"int[]\",\"elements\":[\"3\",\"1\",\"2\"]}",
+                JavaRuntimeExecutionFlowTracer.TRACE_PREFIX
+                        + "{\"type\":\"LOOP\",\"lineNumber\":4}",
+                JavaRuntimeExecutionFlowTracer.TRACE_PREFIX
+                        + "{\"type\":\"VARIABLE\",\"lineNumber\":4,\"name\":\"i\",\"value\":\"0\",\"dataType\":\"loop\"}",
+                JavaRuntimeExecutionFlowTracer.TRACE_PREFIX
+                        + "{\"type\":\"ARRAY_UPDATE\",\"lineNumber\":5,\"name\":\"arr\",\"value\":\"[4, 1, 2]\","
+                        + "\"index\":0,\"elements\":[\"4\",\"1\",\"2\"]}"
+        );
+        return new CodeExecutionResult(CodingSubmissionStatus.ACCEPTED, "token", stdout, null, null, null, "0.01", 1024);
     }
 
     private GrammarTemplate template() {
