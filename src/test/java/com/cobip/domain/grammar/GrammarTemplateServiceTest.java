@@ -11,6 +11,7 @@ import java.util.Optional;
 
 import com.cobip.dto.grammar.GrammarTemplateChapterCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
+import com.cobip.dto.grammar.GrammarTemplateMissionRequest;
 import com.cobip.dto.grammar.GrammarTemplatePracticeFileRequest;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
@@ -40,6 +41,9 @@ class GrammarTemplateServiceTest {
     private GrammarTemplatePracticeFileRepository grammarTemplatePracticeFileRepository;
 
     @Mock
+    private GrammarTemplateChapterMissionRepository grammarTemplateChapterMissionRepository;
+
+    @Mock
     private GrammarTemplateTextExtractor textExtractor;
 
     @Mock
@@ -55,6 +59,7 @@ class GrammarTemplateServiceTest {
                 grammarTemplateRepository,
                 grammarTemplateChapterRepository,
                 grammarTemplatePracticeFileRepository,
+                grammarTemplateChapterMissionRepository,
                 textExtractor,
                 s3Service
         );
@@ -95,12 +100,16 @@ class GrammarTemplateServiceTest {
         GrammarTemplate template = template(1L, GrammarTemplateStatus.PUBLISHED);
         GrammarTemplateChapter chapter = chapter(10L, template, "Variables", 1);
         GrammarTemplatePracticeFile file = practiceFile(100L, template, chapter, "src/main.py");
+        GrammarTemplateChapterMission mission = mission(200L, template, chapter, "Variable Quiz",
+                GrammarTemplateMissionType.PROBLEM, 1);
         when(grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(1L, GrammarTemplateStatus.PUBLISHED))
                 .thenReturn(Optional.of(template));
         when(grammarTemplateChapterRepository.findByTemplateIdAndDeletedAtIsNullOrderByOrderIndexAscIdAsc(1L))
                 .thenReturn(List.of(chapter));
         when(grammarTemplatePracticeFileRepository.findByTemplateIdOrderByChapterIdAscOrderIndexAscIdAsc(1L))
                 .thenReturn(List.of(file));
+        when(grammarTemplateChapterMissionRepository.findByTemplateIdOrderByChapterIdAscOrderIndexAscIdAsc(1L))
+                .thenReturn(List.of(mission));
 
         var response = grammarTemplateService.getPublishedGrammarTemplate(1L);
 
@@ -111,6 +120,9 @@ class GrammarTemplateServiceTest {
         assertThat(response.getChapters().getFirst().getPracticeFiles()).hasSize(1);
         assertThat(response.getChapters().getFirst().getPracticeFiles().getFirst().getFilePath())
                 .isEqualTo("src/main.py");
+        assertThat(response.getChapters().getFirst().getMissions()).hasSize(1);
+        assertThat(response.getChapters().getFirst().getMissions().getFirst().getMissionType())
+                .isEqualTo(GrammarTemplateMissionType.PROBLEM);
     }
 
     @Test
@@ -213,6 +225,88 @@ class GrammarTemplateServiceTest {
         assertThat(file.getContent()).isEqualTo("print(10)");
     }
 
+    @Test
+    void getChapterMissionsReturnsOrderedChapterMissions() {
+        GrammarTemplate template = template(1L, GrammarTemplateStatus.DRAFT);
+        GrammarTemplateChapter chapter = chapter(10L, template, "Variables", 1);
+        GrammarTemplateChapterMission problem = mission(200L, template, chapter, "Variable Quiz",
+                GrammarTemplateMissionType.PROBLEM, 1);
+        GrammarTemplateChapterMission mission = mission(201L, template, chapter, "Declare Variable",
+                GrammarTemplateMissionType.MISSION, 2);
+        when(grammarTemplateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+        when(grammarTemplateChapterMissionRepository.findByTemplateIdAndChapterIdOrderByOrderIndexAscIdAsc(1L, 10L))
+                .thenReturn(List.of(problem, mission));
+
+        var response = grammarTemplateService.getChapterMissions(1L, 10L);
+
+        assertThat(response).hasSize(2);
+        assertThat(response.get(0).getMissionType()).isEqualTo(GrammarTemplateMissionType.PROBLEM);
+        assertThat(response.get(1).getMissionType()).isEqualTo(GrammarTemplateMissionType.MISSION);
+    }
+
+    @Test
+    void createChapterMissionSavesChapterMission() throws Exception {
+        GrammarTemplate template = template(1L, GrammarTemplateStatus.DRAFT);
+        GrammarTemplateChapter chapter = chapter(10L, template, "Variables", 1);
+        GrammarTemplateMissionRequest request = missionRequest("Variable Quiz", GrammarTemplateMissionType.PROBLEM);
+        when(grammarTemplateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+        when(grammarTemplateChapterMissionRepository.save(any(GrammarTemplateChapterMission.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = grammarTemplateService.createChapterMission(1L, 10L, request);
+
+        ArgumentCaptor<GrammarTemplateChapterMission> missionCaptor =
+                ArgumentCaptor.forClass(GrammarTemplateChapterMission.class);
+        verify(grammarTemplateChapterMissionRepository).save(missionCaptor.capture());
+        assertThat(response.getTemplateId()).isEqualTo(1L);
+        assertThat(response.getChapterId()).isEqualTo(10L);
+        assertThat(response.getTitle()).isEqualTo("Variable Quiz");
+        assertThat(response.getMissionType()).isEqualTo(GrammarTemplateMissionType.PROBLEM);
+        assertThat(missionCaptor.getValue().getDescription()).isEqualTo("Choose a valid variable declaration.");
+    }
+
+    @Test
+    void updateChapterMissionChangesFields() throws Exception {
+        GrammarTemplate template = template(1L, GrammarTemplateStatus.DRAFT);
+        GrammarTemplateChapter chapter = chapter(10L, template, "Variables", 1);
+        GrammarTemplateChapterMission mission = mission(200L, template, chapter, "Variable Quiz",
+                GrammarTemplateMissionType.PROBLEM, 1);
+        GrammarTemplateMissionRequest request = missionRequest("Declare Variable", GrammarTemplateMissionType.MISSION);
+        when(grammarTemplateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+        when(grammarTemplateChapterMissionRepository.findByIdAndTemplateIdAndChapterId(200L, 1L, 10L))
+                .thenReturn(Optional.of(mission));
+
+        var response = grammarTemplateService.updateChapterMission(1L, 10L, 200L, request);
+
+        assertThat(response.getTitle()).isEqualTo("Declare Variable");
+        assertThat(response.getMissionType()).isEqualTo(GrammarTemplateMissionType.MISSION);
+        assertThat(mission.getTitle()).isEqualTo("Declare Variable");
+        assertThat(mission.getMissionType()).isEqualTo(GrammarTemplateMissionType.MISSION);
+    }
+
+    @Test
+    void deleteChapterMissionRemovesMission() {
+        GrammarTemplate template = template(1L, GrammarTemplateStatus.DRAFT);
+        GrammarTemplateChapter chapter = chapter(10L, template, "Variables", 1);
+        GrammarTemplateChapterMission mission = mission(200L, template, chapter, "Variable Quiz",
+                GrammarTemplateMissionType.PROBLEM, 1);
+        when(grammarTemplateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+        when(grammarTemplateChapterMissionRepository.findByIdAndTemplateIdAndChapterId(200L, 1L, 10L))
+                .thenReturn(Optional.of(mission));
+
+        grammarTemplateService.deleteChapterMission(1L, 10L, 200L);
+
+        verify(grammarTemplateChapterMissionRepository).delete(mission);
+    }
+
     private GrammarTemplate template(Long id, GrammarTemplateStatus status) {
         return GrammarTemplate.builder()
                 .id(id)
@@ -255,6 +349,27 @@ class GrammarTemplateServiceTest {
                 .content("print(10)")
                 .readOnly(false)
                 .orderIndex(1)
+                .build();
+    }
+
+    private GrammarTemplateChapterMission mission(
+        Long id,
+        GrammarTemplate template,
+        GrammarTemplateChapter chapter,
+        String title,
+        GrammarTemplateMissionType missionType,
+        int orderIndex
+    ) {
+        return GrammarTemplateChapterMission.builder()
+                .id(id)
+                .template(template)
+                .chapter(chapter)
+                .title(title)
+                .description("Choose a valid variable declaration.")
+                .missionType(missionType)
+                .orderIndex(orderIndex)
+                .guideContent("Use int count = 1;")
+                .validationJson(objectMapper.createObjectNode().put("answer", "int count = 1;"))
                 .build();
     }
 
@@ -315,5 +430,23 @@ class GrammarTemplateServiceTest {
               "orderIndex": 1
             }
             """.formatted(filePath), GrammarTemplatePracticeFileRequest.class);
+    }
+
+    private GrammarTemplateMissionRequest missionRequest(
+        String title,
+        GrammarTemplateMissionType missionType
+    ) throws Exception {
+        return objectMapper.readValue("""
+            {
+              "title": "%s",
+              "description": "Choose a valid variable declaration.",
+              "missionType": "%s",
+              "orderIndex": 1,
+              "guideContent": "Use int count = 1;",
+              "validationJson": {
+                "answer": "int count = 1;"
+              }
+            }
+            """.formatted(title, missionType), GrammarTemplateMissionRequest.class);
     }
 }

@@ -17,8 +17,10 @@ import java.util.List;
 import com.cobip.domain.grammar.GrammarTemplateDifficulty;
 import com.cobip.domain.grammar.GrammarTemplate;
 import com.cobip.domain.grammar.GrammarTemplateChapter;
+import com.cobip.domain.grammar.GrammarTemplateChapterMission;
 import com.cobip.domain.grammar.GrammarTemplateLanguage;
 import com.cobip.domain.grammar.GrammarTemplateMediaType;
+import com.cobip.domain.grammar.GrammarTemplateMissionType;
 import com.cobip.domain.grammar.GrammarTemplatePracticeFile;
 import com.cobip.domain.grammar.GrammarTemplatePracticeFileType;
 import com.cobip.domain.grammar.GrammarTemplateService;
@@ -28,6 +30,8 @@ import com.cobip.dto.grammar.GrammarTemplateChapterResponse;
 import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
+import com.cobip.dto.grammar.GrammarTemplateMissionRequest;
+import com.cobip.dto.grammar.GrammarTemplateMissionResponse;
 import com.cobip.dto.grammar.GrammarTemplatePracticeFileRequest;
 import com.cobip.dto.grammar.GrammarTemplatePracticeFileResponse;
 import com.cobip.dto.grammar.GrammarTemplateUpdateRequest;
@@ -300,6 +304,81 @@ class AdminGrammarTemplateControllerTest {
     }
 
     @Test
+    void getChapterMissionsReturnsMissionList() throws Exception {
+        when(grammarTemplateService.getChapterMissions(1L, 10L)).thenReturn(List.of(missionResponse()));
+
+        mockMvc.perform(get("/api/v1/admin/grammar-templates/1/chapters/10/missions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].title").value("Variable Quiz"))
+                .andExpect(jsonPath("$.data[0].missionType").value("PROBLEM"));
+    }
+
+    @Test
+    void createChapterMissionAcceptsRequestBody() throws Exception {
+        when(grammarTemplateService.createChapterMission(
+                eq(1L),
+                eq(10L),
+                any(GrammarTemplateMissionRequest.class)
+        )).thenReturn(missionResponse());
+
+        mockMvc.perform(post("/api/v1/admin/grammar-templates/1/chapters/10/missions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "title": "Variable Quiz",
+                              "description": "Choose a valid variable declaration.",
+                              "missionType": "PROBLEM",
+                              "orderIndex": 1,
+                              "guideContent": "Use int count = 1;",
+                              "validationJson": {
+                                "answer": "int count = 1;"
+                              }
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.chapterId").value(10L))
+                .andExpect(jsonPath("$.data.missionType").value("PROBLEM"));
+    }
+
+    @Test
+    void updateChapterMissionAcceptsPatchRequest() throws Exception {
+        when(grammarTemplateService.updateChapterMission(
+                eq(1L),
+                eq(10L),
+                eq(200L),
+                any(GrammarTemplateMissionRequest.class)
+        )).thenReturn(missionResponse());
+
+        mockMvc.perform(patch("/api/v1/admin/grammar-templates/1/chapters/10/missions/200")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "title": "Variable Quiz",
+                              "description": "Choose a valid variable declaration.",
+                              "missionType": "PROBLEM",
+                              "orderIndex": 1,
+                              "guideContent": "Use int count = 1;",
+                              "validationJson": {
+                                "answer": "int count = 1;"
+                              }
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void deleteChapterMissionReturnsSuccessResponse() throws Exception {
+        doNothing().when(grammarTemplateService).deleteChapterMission(1L, 10L, 200L);
+
+        mockMvc.perform(delete("/api/v1/admin/grammar-templates/1/chapters/10/missions/200"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
     void uploadMediaAcceptsImageFile() throws Exception {
         when(grammarTemplateService.uploadMedia(
                 eq(1L),
@@ -416,5 +495,31 @@ class AdminGrammarTemplateControllerTest {
                 .orderIndex(1)
                 .build();
         return GrammarTemplatePracticeFileResponse.from(file);
+    }
+
+    private GrammarTemplateMissionResponse missionResponse() {
+        GrammarTemplate template = GrammarTemplate.builder()
+                .id(1L)
+                .build();
+        GrammarTemplateChapter chapter = GrammarTemplateChapter.builder()
+                .id(10L)
+                .template(template)
+                .title("Variables")
+                .orderIndex(1)
+                .contentJson(objectMapper.createObjectNode().put("type", "doc"))
+                .searchableText("variables")
+                .build();
+        GrammarTemplateChapterMission mission = GrammarTemplateChapterMission.builder()
+                .id(200L)
+                .template(template)
+                .chapter(chapter)
+                .title("Variable Quiz")
+                .description("Choose a valid variable declaration.")
+                .missionType(GrammarTemplateMissionType.PROBLEM)
+                .orderIndex(1)
+                .guideContent("Use int count = 1;")
+                .validationJson(objectMapper.createObjectNode().put("answer", "int count = 1;"))
+                .build();
+        return GrammarTemplateMissionResponse.from(mission);
     }
 }

@@ -9,6 +9,8 @@ import com.cobip.dto.grammar.GrammarTemplateChapterResponse;
 import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateDetailResponse;
 import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
+import com.cobip.dto.grammar.GrammarTemplateMissionRequest;
+import com.cobip.dto.grammar.GrammarTemplateMissionResponse;
 import com.cobip.dto.grammar.GrammarTemplatePracticeFileRequest;
 import com.cobip.dto.grammar.GrammarTemplatePracticeFileResponse;
 import com.cobip.dto.grammar.GrammarTemplatePublicDetailResponse;
@@ -38,6 +40,7 @@ public class GrammarTemplateService {
     private final GrammarTemplateRepository grammarTemplateRepository;
     private final GrammarTemplateChapterRepository grammarTemplateChapterRepository;
     private final GrammarTemplatePracticeFileRepository grammarTemplatePracticeFileRepository;
+    private final GrammarTemplateChapterMissionRepository grammarTemplateChapterMissionRepository;
     private final GrammarTemplateTextExtractor textExtractor;
     private final S3Service s3Service;
 
@@ -106,7 +109,8 @@ public class GrammarTemplateService {
         return GrammarTemplatePublicDetailResponse.from(
                 template,
                 getActiveChapters(template.getId()),
-                getActivePracticeFiles(template.getId())
+                getActivePracticeFiles(template.getId()),
+                getActiveChapterMissions(template.getId())
         );
     }
 
@@ -116,7 +120,8 @@ public class GrammarTemplateService {
         return GrammarTemplateDetailResponse.from(
                 template,
                 getActiveChapters(template.getId()),
-                getActivePracticeFiles(template.getId())
+                getActivePracticeFiles(template.getId()),
+                getActiveChapterMissions(template.getId())
         );
     }
 
@@ -146,7 +151,8 @@ public class GrammarTemplateService {
         return GrammarTemplateDetailResponse.from(
                 template,
                 getActiveChapters(template.getId()),
-                getActivePracticeFiles(template.getId())
+                getActivePracticeFiles(template.getId()),
+                getActiveChapterMissions(template.getId())
         );
     }
 
@@ -163,15 +169,23 @@ public class GrammarTemplateService {
         return GrammarTemplateDetailResponse.from(
                 template,
                 getActiveChapters(template.getId()),
-                getActivePracticeFiles(template.getId())
+                getActivePracticeFiles(template.getId()),
+                getActiveChapterMissions(template.getId())
         );
     }
 
     @Transactional(readOnly = true)
     public List<GrammarTemplateChapterResponse> getChapters(Long templateId) {
         GrammarTemplate template = getActiveTemplate(templateId);
+        List<GrammarTemplateChapterMission> missions = getActiveChapterMissions(template.getId());
         return getActiveChapters(template.getId()).stream()
-                .map(GrammarTemplateChapterResponse::from)
+                .map(chapter -> GrammarTemplateChapterResponse.from(
+                        chapter,
+                        List.of(),
+                        missions.stream()
+                                .filter(mission -> mission.getChapter().getId().equals(chapter.getId()))
+                                .toList()
+                ))
                 .toList();
     }
 
@@ -283,6 +297,65 @@ public class GrammarTemplateService {
     }
 
     @Transactional(readOnly = true)
+    public List<GrammarTemplateMissionResponse> getChapterMissions(Long templateId, Long chapterId) {
+        getActiveTemplate(templateId);
+        getActiveChapter(templateId, chapterId);
+        return getActiveChapterMissions(templateId, chapterId).stream()
+                .map(GrammarTemplateMissionResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public GrammarTemplateMissionResponse createChapterMission(
+        Long templateId,
+        Long chapterId,
+        GrammarTemplateMissionRequest request
+    ) {
+        GrammarTemplate template = getActiveTemplate(templateId);
+        GrammarTemplateChapter chapter = getActiveChapter(templateId, chapterId);
+        GrammarTemplateChapterMission mission = GrammarTemplateChapterMission.create(
+                template,
+                chapter,
+                request.getTitle(),
+                request.getDescription(),
+                request.getMissionType(),
+                request.getOrderIndex(),
+                request.getGuideContent(),
+                request.getValidationJson()
+        );
+        return GrammarTemplateMissionResponse.from(grammarTemplateChapterMissionRepository.save(mission));
+    }
+
+    @Transactional
+    public GrammarTemplateMissionResponse updateChapterMission(
+        Long templateId,
+        Long chapterId,
+        Long missionId,
+        GrammarTemplateMissionRequest request
+    ) {
+        getActiveTemplate(templateId);
+        getActiveChapter(templateId, chapterId);
+        GrammarTemplateChapterMission mission = getActiveChapterMission(templateId, chapterId, missionId);
+        mission.update(
+                request.getTitle(),
+                request.getDescription(),
+                request.getMissionType(),
+                request.getOrderIndex(),
+                request.getGuideContent(),
+                request.getValidationJson()
+        );
+        return GrammarTemplateMissionResponse.from(mission);
+    }
+
+    @Transactional
+    public void deleteChapterMission(Long templateId, Long chapterId, Long missionId) {
+        getActiveTemplate(templateId);
+        getActiveChapter(templateId, chapterId);
+        GrammarTemplateChapterMission mission = getActiveChapterMission(templateId, chapterId, missionId);
+        grammarTemplateChapterMissionRepository.delete(mission);
+    }
+
+    @Transactional(readOnly = true)
     public GrammarTemplateMediaUploadResponse uploadMedia(
         Long templateId,
         GrammarTemplateMediaType mediaType,
@@ -324,9 +397,29 @@ public class GrammarTemplateService {
         );
     }
 
+    private List<GrammarTemplateChapterMission> getActiveChapterMissions(Long templateId) {
+        return grammarTemplateChapterMissionRepository.findByTemplateIdOrderByChapterIdAscOrderIndexAscIdAsc(templateId);
+    }
+
+    private List<GrammarTemplateChapterMission> getActiveChapterMissions(Long templateId, Long chapterId) {
+        return grammarTemplateChapterMissionRepository.findByTemplateIdAndChapterIdOrderByOrderIndexAscIdAsc(
+                templateId,
+                chapterId
+        );
+    }
+
     private GrammarTemplatePracticeFile getActivePracticeFile(Long templateId, Long chapterId, Long fileId) {
         return grammarTemplatePracticeFileRepository.findByIdAndTemplateIdAndChapterId(fileId, templateId, chapterId)
                 .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_PRACTICE_FILE_NOT_FOUND));
+    }
+
+    private GrammarTemplateChapterMission getActiveChapterMission(Long templateId, Long chapterId, Long missionId) {
+        return grammarTemplateChapterMissionRepository.findByIdAndTemplateIdAndChapterId(
+                        missionId,
+                        templateId,
+                        chapterId
+                )
+                .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_MISSION_NOT_FOUND));
     }
 
     private void validateUniqueSlug(String slug) {
