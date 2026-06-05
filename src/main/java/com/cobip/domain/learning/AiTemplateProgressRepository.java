@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AiTemplateProgressRepository extends JpaRepository<AiTemplateProgress, Long> {
@@ -13,8 +14,10 @@ public interface AiTemplateProgressRepository extends JpaRepository<AiTemplatePr
 
     Page<AiTemplateProgress> findByUserIdOrderByLastAccessedAtDescIdDesc(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"user"})
     List<AiTemplateProgress> findByUserIdOrderByLastAccessedAtDesc(Long userId);
 
+    @EntityGraph(attributePaths = {"user"})
     List<AiTemplateProgress> findTop5ByUserIdOrderByLastAccessedAtDesc(Long userId);
 
     long countByUserIdAndProgressPercentLessThan(Long userId, int progressPercent);

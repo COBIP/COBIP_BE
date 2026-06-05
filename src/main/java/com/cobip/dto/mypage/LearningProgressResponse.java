@@ -2,6 +2,7 @@ package com.cobip.dto.mypage;
 
 import java.time.LocalDateTime;
 
+import com.cobip.domain.learning.AiTemplateProgress;
 import com.cobip.domain.learning.GrammarLearningProgress;
 import com.cobip.domain.learning.LearningProgress;
 
@@ -11,6 +12,7 @@ import lombok.Getter;
 public class LearningProgressResponse {
 
     private final Long templateId;
+    private final String aiTemplateId;
     private final String contentType;
     private final String templateTitle;
     private final String thumbnailUrl;
@@ -25,6 +27,7 @@ public class LearningProgressResponse {
 
     private LearningProgressResponse(LearningProgress progress) {
         this.templateId = progress.getTemplate().getId();
+        this.aiTemplateId = null;
         this.contentType = "TEMPLATE";
         this.templateTitle = progress.getTemplate().getTitle();
         this.thumbnailUrl = progress.getTemplate().getThumbnailUrl();
@@ -40,10 +43,27 @@ public class LearningProgressResponse {
 
     private LearningProgressResponse(GrammarLearningProgress progress) {
         this.templateId = progress.getTemplate().getId();
+        this.aiTemplateId = null;
         this.contentType = "GRAMMAR_TEMPLATE";
         this.templateTitle = progress.getTemplate().getTitle();
         this.thumbnailUrl = null;
         this.currentChapterId = progress.getCurrentChapter() == null ? null : progress.getCurrentChapter().getId();
+        this.progressPercent = progress.getProgressPercent();
+        this.lastStep = progress.getLastStep();
+        this.solvedCount = 0;
+        this.correctCount = 0;
+        this.studySeconds = progress.getStudySeconds();
+        this.lastAccessedAt = progress.getLastAccessedAt();
+        this.completed = progress.isCompleted();
+    }
+
+    private LearningProgressResponse(AiTemplateProgress progress) {
+        this.templateId = null;
+        this.aiTemplateId = progress.getAiTemplateId();
+        this.contentType = "AI_TEMPLATE";
+        this.templateTitle = progress.getTemplateTitle();
+        this.thumbnailUrl = null;
+        this.currentChapterId = null;
         this.progressPercent = progress.getProgressPercent();
         this.lastStep = progress.getLastStep();
         this.solvedCount = 0;
@@ -58,6 +78,10 @@ public class LearningProgressResponse {
     }
 
     public static LearningProgressResponse from(GrammarLearningProgress progress) {
+        return new LearningProgressResponse(progress);
+    }
+
+    public static LearningProgressResponse from(AiTemplateProgress progress) {
         return new LearningProgressResponse(progress);
     }
 }

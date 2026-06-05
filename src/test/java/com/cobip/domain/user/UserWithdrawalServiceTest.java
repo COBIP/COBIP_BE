@@ -10,6 +10,7 @@ import java.util.Optional;
 import com.cobip.domain.activity.ActivityHistory;
 import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.activity.ActivityType;
+import com.cobip.domain.learning.AiTemplateProgressRepository;
 import com.cobip.domain.learning.GrammarLearningProgressRepository;
 import com.cobip.domain.learning.GrammarLearningProgressService;
 import com.cobip.domain.learning.LearningProgressRepository;
@@ -46,6 +47,9 @@ class UserWithdrawalServiceTest {
     private LearningProgressRepository learningProgressRepository;
 
     @Mock
+    private AiTemplateProgressRepository aiTemplateProgressRepository;
+
+    @Mock
     private GrammarLearningProgressRepository grammarLearningProgressRepository;
 
     @Mock
@@ -72,6 +76,7 @@ class UserWithdrawalServiceTest {
                 templateRepository,
                 templateFavoriteRepository,
                 learningProgressRepository,
+                aiTemplateProgressRepository,
                 grammarLearningProgressRepository,
                 grammarLearningProgressService,
                 userLearningDailyStatRepository,

@@ -8,9 +8,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import com.cobip.domain.activity.ActivityHistoryRepository;
+import com.cobip.domain.learning.AiTemplateProgress;
+import com.cobip.domain.learning.AiTemplateProgressRepository;
 import com.cobip.domain.learning.GrammarLearningProgressRepository;
 import com.cobip.domain.learning.GrammarLearningProgressService;
 import com.cobip.domain.learning.LearningProgressRepository;
@@ -19,24 +23,33 @@ import com.cobip.domain.learning.UserLearningDailyStatRepository;
 import com.cobip.domain.subscription.Subscription;
 import com.cobip.domain.subscription.SubscriptionRepository;
 import com.cobip.domain.subscription.SubscriptionStatus;
+import com.cobip.domain.template.Template;
+import com.cobip.domain.template.TemplateAccessLevel;
+import com.cobip.domain.template.TemplateDifficulty;
 import com.cobip.domain.template.TemplateFavoriteRepository;
 import com.cobip.domain.template.TemplateRepository;
+import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.dto.mypage.LearningActivityHeartbeatRequest;
 import com.cobip.dto.mypage.LearningActivityHeartbeatResponse;
+import com.cobip.dto.mypage.LearningProgressResponse;
 import com.cobip.dto.mypage.SubscriptionResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class MyPageServiceTest {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Mock
     private UserRepository userRepository;
@@ -49,6 +62,9 @@ class MyPageServiceTest {
 
     @Mock
     private LearningProgressRepository learningProgressRepository;
+
+    @Mock
+    private AiTemplateProgressRepository aiTemplateProgressRepository;
 
     @Mock
     private GrammarLearningProgressRepository grammarLearningProgressRepository;
@@ -77,6 +93,7 @@ class MyPageServiceTest {
                 templateRepository,
                 templateFavoriteRepository,
                 learningProgressRepository,
+                aiTemplateProgressRepository,
                 grammarLearningProgressRepository,
                 grammarLearningProgressService,
                 userLearningDailyStatRepository,
@@ -145,6 +162,35 @@ class MyPageServiceTest {
         assertThat(response.getStudySeconds()).isEqualTo(90);
     }
 
+    @Test
+    void getLearningProgressIncludesAiTemplates() {
+        User user = user();
+        AiTemplateProgress aiTemplateProgress = AiTemplateProgress.create(
+                user,
+                "ai-jwt-login",
+                "JWT 로그인 구현",
+                objectMapper.createObjectNode().put("title", "JWT 로그인 구현"),
+                null,
+                null,
+                40,
+                "section-2",
+                300,
+                false,
+                LocalDateTime.now()
+        );
+
+        when(learningProgressRepository.findByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of(templateProgress(user)));
+        when(grammarLearningProgressRepository.findByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of());
+        when(aiTemplateProgressRepository.findByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of(aiTemplateProgress));
+
+        List<LearningProgressResponse> content = myPageService.getLearningProgress(user, PageRequest.of(0, 20)).getContent();
+
+        assertThat(content).hasSize(2);
+        assertThat(content.getFirst().getContentType()).isEqualTo("AI_TEMPLATE");
+        assertThat(content.getFirst().getAiTemplateId()).isEqualTo("ai-jwt-login");
+        assertThat(content.getFirst().getTemplateId()).isNull();
+    }
+
     private LearningActivityHeartbeatRequest heartbeatRequest(int activeSeconds) {
         LearningActivityHeartbeatRequest request = new LearningActivityHeartbeatRequest();
         ReflectionTestUtils.setField(request, "activeSeconds", activeSeconds);
@@ -163,6 +209,20 @@ class MyPageServiceTest {
                 .build();
     }
 
+    private com.cobip.domain.learning.LearningProgress templateProgress(User user) {
+        return com.cobip.domain.learning.LearningProgress.builder()
+                .id(1L)
+                .user(user)
+                .template(template())
+                .progressPercent(10)
+                .lastStep("01. intro")
+                .solvedCount(2)
+                .correctCount(1)
+                .studySeconds(60)
+                .lastAccessedAt(LocalDateTime.now().minusMinutes(1))
+                .build();
+    }
+
     private Subscription subscription(SubscriptionStatus status, LocalDate expiredAt) {
         return Subscription.builder()
                 .id(1L)
@@ -172,6 +232,20 @@ class MyPageServiceTest {
                 .startedAt(LocalDate.now().minusDays(20))
                 .expiredAt(expiredAt)
                 .nextPaymentAt(expiredAt)
+                .build();
+    }
+
+    private Template template() {
+        return Template.builder()
+                .id(1L)
+                .owner(user())
+                .title("Template")
+                .description("description")
+                .category("backend")
+                .difficulty(TemplateDifficulty.BEGINNER)
+                .techStacks(List.of("Spring"))
+                .visibility(TemplateVisibility.PUBLIC)
+                .accessLevel(TemplateAccessLevel.FREE)
                 .build();
     }
 }
