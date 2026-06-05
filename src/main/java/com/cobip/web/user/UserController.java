@@ -1,9 +1,13 @@
 package com.cobip.web.user;
 
 import com.cobip.domain.certificate.CertificateService;
+import com.cobip.domain.learning.AiTemplateService;
 import com.cobip.domain.user.MyPageService;
 import com.cobip.domain.user.User;
 import com.cobip.dto.mypage.ActivityHistoryResponse;
+import com.cobip.dto.mypage.AiTemplateResponse;
+import com.cobip.dto.mypage.AiTemplateSaveRequest;
+import com.cobip.dto.mypage.AiTemplateUpdateRequest;
 import com.cobip.dto.mypage.CertificateResponse;
 import com.cobip.dto.mypage.LearningActivityHeartbeatRequest;
 import com.cobip.dto.mypage.LearningActivityHeartbeatResponse;
@@ -28,6 +32,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +45,7 @@ public class UserController {
 
     private final MyPageService myPageService;
     private final CertificateService certificateService;
+    private final AiTemplateService aiTemplateService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<MyProfileResponse>> getProfile(@AuthenticationPrincipal User user) {
@@ -94,6 +100,54 @@ public class UserController {
         @PageableDefault(size = 20) Pageable pageable
     ) {
         return ResponseEntity.ok(ApiResponse.success(myPageService.getLearningProgress(user, pageable)));
+    }
+
+    @PostMapping("/ai-templates")
+    public ResponseEntity<ApiResponse<AiTemplateResponse>> saveAiTemplate(
+        @AuthenticationPrincipal User user,
+        @RequestBody @Valid AiTemplateSaveRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "AI 템플릿이 저장되었습니다.",
+                aiTemplateService.saveTemplate(user, request)
+        ));
+    }
+
+    @GetMapping("/ai-templates")
+    public ResponseEntity<ApiResponse<PageResponse<AiTemplateResponse>>> getAiTemplates(
+        @AuthenticationPrincipal User user,
+        @PageableDefault(size = 20) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(aiTemplateService.getTemplates(user, pageable)));
+    }
+
+    @GetMapping("/ai-templates/{aiTemplateId}")
+    public ResponseEntity<ApiResponse<AiTemplateResponse>> getAiTemplate(
+        @AuthenticationPrincipal User user,
+        @PathVariable String aiTemplateId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(aiTemplateService.getTemplate(user, aiTemplateId)));
+    }
+
+    @PatchMapping("/ai-templates/{aiTemplateId}")
+    public ResponseEntity<ApiResponse<AiTemplateResponse>> updateAiTemplate(
+        @AuthenticationPrincipal User user,
+        @PathVariable String aiTemplateId,
+        @RequestBody @Valid AiTemplateUpdateRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "AI 템플릿이 수정되었습니다.",
+                aiTemplateService.updateTemplate(user, aiTemplateId, request)
+        ));
+    }
+
+    @DeleteMapping("/ai-templates/{aiTemplateId}")
+    public ResponseEntity<ApiResponse<Void>> deleteAiTemplate(
+        @AuthenticationPrincipal User user,
+        @PathVariable String aiTemplateId
+    ) {
+        aiTemplateService.deleteTemplate(user, aiTemplateId);
+        return ResponseEntity.ok(ApiResponse.success("AI 템플릿이 삭제되었습니다.", null));
     }
 
     @PostMapping("/learning-activities/heartbeat")

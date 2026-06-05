@@ -12,8 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.cobip.domain.certificate.CertificateService;
+import com.cobip.domain.learning.AiTemplateService;
 import com.cobip.domain.user.MyPageService;
 import com.cobip.domain.user.User;
+import com.cobip.dto.mypage.AiTemplateSaveRequest;
+import com.cobip.dto.mypage.AiTemplateUpdateRequest;
 import com.cobip.dto.mypage.LearningActivityHeartbeatRequest;
 import com.cobip.dto.user.MyProfileUpdateRequest;
 import com.cobip.dto.user.PasswordChangeRequest;
@@ -44,6 +47,9 @@ class UserControllerTest {
 
     @MockitoBean
     private CertificateService certificateService;
+
+    @MockitoBean
+    private AiTemplateService aiTemplateService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -148,6 +154,51 @@ class UserControllerTest {
                               "activeSeconds": 30
                             }
                             """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void aiTemplateEndpointsAcceptCrudRequests() throws Exception {
+        when(aiTemplateService.saveTemplate(isNull(User.class), any(AiTemplateSaveRequest.class))).thenReturn(null);
+        when(aiTemplateService.getTemplates(isNull(User.class), any(Pageable.class))).thenReturn(PageResponse.from(Page.empty()));
+        when(aiTemplateService.getTemplate(isNull(User.class), any(String.class))).thenReturn(null);
+        when(aiTemplateService.updateTemplate(
+                isNull(User.class),
+                any(String.class),
+                any(AiTemplateUpdateRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/users/me/ai-templates")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "aiTemplateId": "ai-jwt-login",
+                              "templateTitle": "JWT 로그인 구현",
+                              "templateSnapshot": {
+                                "title": "JWT 로그인 구현"
+                              }
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        mockMvc.perform(get("/api/v1/users/me/ai-templates"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isArray());
+        mockMvc.perform(get("/api/v1/users/me/ai-templates/ai-jwt-login"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        mockMvc.perform(patch("/api/v1/users/me/ai-templates/ai-jwt-login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "progressPercent": 40,
+                              "studySeconds": 300
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        mockMvc.perform(delete("/api/v1/users/me/ai-templates/ai-jwt-login"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
