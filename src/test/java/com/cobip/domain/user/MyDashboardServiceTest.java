@@ -12,6 +12,8 @@ import java.util.List;
 import com.cobip.domain.activity.ActivityHistory;
 import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.activity.ActivityType;
+import com.cobip.domain.learning.AiTemplateProgress;
+import com.cobip.domain.learning.AiTemplateProgressRepository;
 import com.cobip.domain.learning.GrammarLearningProgressRepository;
 import com.cobip.domain.learning.GrammarLearningProgressService;
 import com.cobip.domain.learning.LearningProgress;
@@ -26,6 +28,7 @@ import com.cobip.domain.template.TemplateFavoriteRepository;
 import com.cobip.domain.template.TemplateRepository;
 import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.dto.mypage.MyDashboardResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +43,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class MyDashboardServiceTest {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Mock
     private UserRepository userRepository;
 
@@ -51,6 +56,9 @@ class MyDashboardServiceTest {
 
     @Mock
     private LearningProgressRepository learningProgressRepository;
+
+    @Mock
+    private AiTemplateProgressRepository aiTemplateProgressRepository;
 
     @Mock
     private GrammarLearningProgressRepository grammarLearningProgressRepository;
@@ -79,6 +87,7 @@ class MyDashboardServiceTest {
                 templateRepository,
                 templateFavoriteRepository,
                 learningProgressRepository,
+                aiTemplateProgressRepository,
                 grammarLearningProgressRepository,
                 grammarLearningProgressService,
                 userLearningDailyStatRepository,
@@ -93,14 +102,17 @@ class MyDashboardServiceTest {
         User user = user();
         Template template = template();
         LearningProgress progress = learningProgress(user, template);
+        AiTemplateProgress aiTemplateProgress = aiTemplateProgress(user);
         LocalDate today = LocalDate.now();
         ActivityHistory yesterdayActivity = activity(user, today.minusDays(1).atTime(10, 0));
         ActivityHistory todayActivity = activity(user, today.atTime(11, 0));
         UserLearningDailyStat todayStat = dailyStat(user, today, 1800);
         when(learningProgressRepository.findByUserId(1L)).thenReturn(List.of(progress));
+        when(aiTemplateProgressRepository.findByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of(aiTemplateProgress));
         when(userLearningDailyStatRepository.sumStudySecondsByUserId(1L)).thenReturn(1800L);
         when(learningProgressRepository.findTop5ByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of(progress));
         when(grammarLearningProgressRepository.findTop5ByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of());
+        when(aiTemplateProgressRepository.findTop5ByUserIdOrderByLastAccessedAtDesc(1L)).thenReturn(List.of(aiTemplateProgress));
         when(activityHistoryRepository.findTop10ByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(todayActivity));
         when(activityHistoryRepository.findByUserIdAndCreatedAtBetweenOrderByCreatedAtAsc(
                 eq(1L),
@@ -116,12 +128,19 @@ class MyDashboardServiceTest {
                 eq(TemplateVisibility.PUBLIC),
                 any(PageRequest.class)
         )).thenReturn(new PageImpl<>(List.of(template)));
+        when(learningProgressRepository.countByUserIdAndProgressPercentLessThan(1L, 100)).thenReturn(1L);
+        when(grammarLearningProgressRepository.countByUserIdAndProgressPercentLessThan(1L, 100)).thenReturn(0L);
+        when(aiTemplateProgressRepository.countByUserIdAndProgressPercentLessThan(1L, 100)).thenReturn(1L);
+        when(learningProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(1L, 100)).thenReturn(0L);
+        when(grammarLearningProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(1L, 100)).thenReturn(0L);
+        when(aiTemplateProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(1L, 100)).thenReturn(0L);
 
         MyDashboardResponse response = myPageService.getDashboard(user);
 
         assertThat(response.getContinueLearning()).isNotNull();
-        assertThat(response.getContinueLearning().getTemplateId()).isEqualTo(1L);
-        assertThat(response.getTotalStudySeconds()).isEqualTo(5400);
+        assertThat(response.getContinueLearning().getContentType()).isEqualTo("AI_TEMPLATE");
+        assertThat(response.getContinueLearning().getAiTemplateId()).isEqualTo("ai-jwt-login");
+        assertThat(response.getTotalStudySeconds()).isEqualTo(5700);
         assertThat(response.getWeeklyActivities()).hasSize(7);
         assertThat(response.getWeeklyActivities().get(5).getDate()).isEqualTo(today.minusDays(1));
         assertThat(response.getWeeklyActivities().get(5).getActivityCount()).isEqualTo(1);
@@ -155,6 +174,22 @@ class MyDashboardServiceTest {
                 .studySeconds(3600)
                 .lastAccessedAt(LocalDateTime.now())
                 .build();
+    }
+
+    private AiTemplateProgress aiTemplateProgress(User user) {
+        return AiTemplateProgress.create(
+                user,
+                "ai-jwt-login",
+                "JWT 로그인 구현",
+                objectMapper.createObjectNode().put("title", "JWT 로그인 구현"),
+                null,
+                null,
+                40,
+                "section-2",
+                300,
+                false,
+                LocalDateTime.now().plusMinutes(1)
+        );
     }
 
     private UserLearningDailyStat dailyStat(User user, LocalDate activityDate, long studySeconds) {

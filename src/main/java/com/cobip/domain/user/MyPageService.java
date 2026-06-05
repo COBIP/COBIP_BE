@@ -11,6 +11,8 @@ import java.util.stream.Stream;
 import com.cobip.domain.activity.ActivityHistory;
 import com.cobip.domain.activity.ActivityHistoryRepository;
 import com.cobip.domain.activity.ActivityType;
+import com.cobip.domain.learning.AiTemplateProgress;
+import com.cobip.domain.learning.AiTemplateProgressRepository;
 import com.cobip.domain.learning.GrammarLearningProgressRepository;
 import com.cobip.domain.learning.GrammarLearningProgressService;
 import com.cobip.domain.learning.LearningContentType;
@@ -40,6 +42,7 @@ import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -56,6 +59,7 @@ public class MyPageService {
     private final TemplateRepository templateRepository;
     private final TemplateFavoriteRepository templateFavoriteRepository;
     private final LearningProgressRepository learningProgressRepository;
+    private final AiTemplateProgressRepository aiTemplateProgressRepository;
     private final GrammarLearningProgressRepository grammarLearningProgressRepository;
     private final GrammarLearningProgressService grammarLearningProgressService;
     private final UserLearningDailyStatRepository userLearningDailyStatRepository;
@@ -125,10 +129,24 @@ public class MyPageService {
 
     @Transactional(readOnly = true)
     public PageResponse<LearningProgressResponse> getLearningProgress(User user, Pageable pageable) {
-        Page<LearningProgressResponse> progresses = learningProgressRepository
-                .findByUserIdOrderByLastAccessedAtDesc(user.getId(), pageable)
-                .map(LearningProgressResponse::from);
-        return PageResponse.from(progresses);
+        List<LearningProgressResponse> mergedLearning = mergeLearning(
+                learningProgressRepository.findByUserIdOrderByLastAccessedAtDesc(user.getId()).stream()
+                        .map(LearningProgressResponse::from)
+                        .toList(),
+                grammarLearningProgressRepository.findByUserIdOrderByLastAccessedAtDesc(user.getId()).stream()
+                        .map(LearningProgressResponse::from)
+                        .toList(),
+                aiTemplateProgressRepository.findByUserIdOrderByLastAccessedAtDesc(user.getId()).stream()
+                        .map(LearningProgressResponse::from)
+                        .toList()
+        );
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), mergedLearning.size());
+        List<LearningProgressResponse> pageContent = start >= mergedLearning.size()
+                ? List.of()
+                : mergedLearning.subList(start, end);
+
+        return PageResponse.from(new PageImpl<>(pageContent, pageable, mergedLearning.size()));
     }
 
     @Transactional
@@ -188,7 +206,9 @@ public class MyPageService {
     @Transactional(readOnly = true)
     public MyDashboardResponse getDashboard(User user) {
         List<LearningProgress> progresses = learningProgressRepository.findByUserId(user.getId());
+        List<AiTemplateProgress> aiTemplateProgresses = aiTemplateProgressRepository.findByUserIdOrderByLastAccessedAtDesc(user.getId());
         long totalStudySeconds = progresses.stream().mapToLong(LearningProgress::getStudySeconds).sum()
+                + aiTemplateProgresses.stream().mapToLong(AiTemplateProgress::getStudySeconds).sum()
                 + userLearningDailyStatRepository.sumStudySecondsByUserId(user.getId());
         int solvedCount = progresses.stream().mapToInt(LearningProgress::getSolvedCount).sum();
         int correctCount = progresses.stream().mapToInt(LearningProgress::getCorrectCount).sum();
@@ -202,7 +222,17 @@ public class MyPageService {
                 .findTop5ByUserIdOrderByLastAccessedAtDesc(user.getId()).stream()
                 .map(LearningProgressResponse::from)
                 .toList();
-        List<LearningProgressResponse> mergedRecentLearning = mergeRecentLearning(recentLearning, recentGrammarLearning);
+        List<LearningProgressResponse> recentAiLearning = aiTemplateProgressRepository
+                .findTop5ByUserIdOrderByLastAccessedAtDesc(user.getId()).stream()
+                .map(LearningProgressResponse::from)
+                .toList();
+        List<LearningProgressResponse> mergedRecentLearning = mergeLearning(
+                recentLearning,
+                recentGrammarLearning,
+                recentAiLearning
+        ).stream()
+                .limit(5)
+                .toList();
         List<ActivityHistoryResponse> recentActivities = activityHistoryRepository
                 .findTop10ByUserIdOrderByCreatedAtDesc(user.getId())
                 .stream()
@@ -221,9 +251,11 @@ public class MyPageService {
         return new MyDashboardResponse(
                 templateRepository.countByOwnerIdAndDeletedAtIsNull(user.getId()),
                 learningProgressRepository.countByUserIdAndProgressPercentLessThan(user.getId(), 100)
-                        + grammarLearningProgressRepository.countByUserIdAndProgressPercentLessThan(user.getId(), 100),
+                        + grammarLearningProgressRepository.countByUserIdAndProgressPercentLessThan(user.getId(), 100)
+                        + aiTemplateProgressRepository.countByUserIdAndProgressPercentLessThan(user.getId(), 100),
                 learningProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(user.getId(), 100)
-                        + grammarLearningProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(user.getId(), 100),
+                        + grammarLearningProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(user.getId(), 100)
+                        + aiTemplateProgressRepository.countByUserIdAndProgressPercentGreaterThanEqual(user.getId(), 100),
                 totalStudySeconds,
                 averageCorrectRate,
                 getSubscription(user),
@@ -235,13 +267,12 @@ public class MyPageService {
         );
     }
 
-    private List<LearningProgressResponse> mergeRecentLearning(
-        List<LearningProgressResponse> templateLearning,
-        List<LearningProgressResponse> grammarLearning
+    private List<LearningProgressResponse> mergeLearning(
+        List<LearningProgressResponse>... learningGroups
     ) {
-        return Stream.concat(templateLearning.stream(), grammarLearning.stream())
+        return Stream.of(learningGroups)
+                .flatMap(List::stream)
                 .sorted((left, right) -> lastAccessedAt(right).compareTo(lastAccessedAt(left)))
-                .limit(5)
                 .toList();
     }
 

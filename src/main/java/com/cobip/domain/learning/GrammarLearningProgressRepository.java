@@ -13,6 +13,9 @@ public interface GrammarLearningProgressRepository extends JpaRepository<Grammar
     @EntityGraph(attributePaths = {"template", "currentChapter"})
     List<GrammarLearningProgress> findTop5ByUserIdOrderByLastAccessedAtDesc(Long userId);
 
+    @EntityGraph(attributePaths = {"template", "currentChapter"})
+    List<GrammarLearningProgress> findByUserIdOrderByLastAccessedAtDesc(Long userId);
+
     long countByUserIdAndProgressPercentLessThan(Long userId, int progressPercent);
 
     long countByUserIdAndProgressPercentGreaterThanEqual(Long userId, int progressPercent);

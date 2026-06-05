@@ -44,6 +44,7 @@ public enum ErrorCode {
     SUBSCRIPTION_PLAN_NOT_FOUND(HttpStatus.NOT_FOUND, "구독 플랜을 찾을 수 없습니다."),
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "신고를 찾을 수 없습니다."),
     LAB_WORKSPACE_NOT_FOUND(HttpStatus.NOT_FOUND, "Lab workspace not found."),
+    AI_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "AI template not found."),
     CERTIFICATE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "수료 조건을 충족하지 않았습니다."),
     CERTIFICATE_ALREADY_ISSUED(HttpStatus.CONFLICT, "이미 발급된 수료증입니다."),
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "파일 업로드에 실패했습니다."),

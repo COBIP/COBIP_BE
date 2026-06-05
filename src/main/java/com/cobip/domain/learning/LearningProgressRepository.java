@@ -17,6 +17,9 @@ public interface LearningProgressRepository extends JpaRepository<LearningProgre
     @EntityGraph(attributePaths = {"template", "template.owner"})
     List<LearningProgress> findTop5ByUserIdOrderByLastAccessedAtDesc(Long userId);
 
+    @EntityGraph(attributePaths = {"template", "template.owner"})
+    List<LearningProgress> findByUserIdOrderByLastAccessedAtDesc(Long userId);
+
     Optional<LearningProgress> findByUserIdAndTemplateId(Long userId, Long templateId);
 
     long countByUserIdAndProgressPercentLessThan(Long userId, int progressPercent);
