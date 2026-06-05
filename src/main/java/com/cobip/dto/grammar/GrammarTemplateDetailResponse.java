@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import com.cobip.domain.grammar.GrammarTemplate;
 import com.cobip.domain.grammar.GrammarTemplateChapter;
+import com.cobip.domain.grammar.GrammarTemplateChapterMission;
 import com.cobip.domain.grammar.GrammarTemplateDifficulty;
 import com.cobip.domain.grammar.GrammarTemplateLanguage;
 import com.cobip.domain.grammar.GrammarTemplatePracticeFile;
@@ -36,10 +37,13 @@ public class GrammarTemplateDetailResponse {
     private GrammarTemplateDetailResponse(
         GrammarTemplate template,
         List<GrammarTemplateChapter> chapters,
-        List<GrammarTemplatePracticeFile> practiceFiles
+        List<GrammarTemplatePracticeFile> practiceFiles,
+        List<GrammarTemplateChapterMission> missions
     ) {
         Map<Long, List<GrammarTemplatePracticeFile>> practiceFilesByChapterId = practiceFiles.stream()
                 .collect(Collectors.groupingBy(file -> file.getChapter().getId()));
+        Map<Long, List<GrammarTemplateChapterMission>> missionsByChapterId = missions.stream()
+                .collect(Collectors.groupingBy(mission -> mission.getChapter().getId()));
 
         this.id = template.getId();
         this.slug = template.getSlug();
@@ -52,7 +56,8 @@ public class GrammarTemplateDetailResponse {
         this.chapters = chapters.stream()
                 .map(chapter -> GrammarTemplateChapterResponse.from(
                         chapter,
-                        practiceFilesByChapterId.getOrDefault(chapter.getId(), List.of())
+                        practiceFilesByChapterId.getOrDefault(chapter.getId(), List.of()),
+                        missionsByChapterId.getOrDefault(chapter.getId(), List.of())
                 ))
                 .toList();
         this.searchableText = template.getSearchableText();
@@ -63,14 +68,14 @@ public class GrammarTemplateDetailResponse {
     }
 
     public static GrammarTemplateDetailResponse from(GrammarTemplate template) {
-        return from(template, List.of(), List.of());
+        return from(template, List.of(), List.of(), List.of());
     }
 
     public static GrammarTemplateDetailResponse from(
         GrammarTemplate template,
         List<GrammarTemplateChapter> chapters
     ) {
-        return from(template, chapters, List.of());
+        return from(template, chapters, List.of(), List.of());
     }
 
     public static GrammarTemplateDetailResponse from(
@@ -78,6 +83,15 @@ public class GrammarTemplateDetailResponse {
         List<GrammarTemplateChapter> chapters,
         List<GrammarTemplatePracticeFile> practiceFiles
     ) {
-        return new GrammarTemplateDetailResponse(template, chapters, practiceFiles);
+        return from(template, chapters, practiceFiles, List.of());
+    }
+
+    public static GrammarTemplateDetailResponse from(
+        GrammarTemplate template,
+        List<GrammarTemplateChapter> chapters,
+        List<GrammarTemplatePracticeFile> practiceFiles,
+        List<GrammarTemplateChapterMission> missions
+    ) {
+        return new GrammarTemplateDetailResponse(template, chapters, practiceFiles, missions);
     }
 }

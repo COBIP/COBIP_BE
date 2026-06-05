@@ -11,6 +11,8 @@ import com.cobip.dto.grammar.GrammarTemplateChapterUpdateRequest;
 import com.cobip.dto.grammar.GrammarTemplateCreateRequest;
 import com.cobip.dto.grammar.GrammarTemplateDetailResponse;
 import com.cobip.dto.grammar.GrammarTemplateMediaUploadResponse;
+import com.cobip.dto.grammar.GrammarTemplateMissionRequest;
+import com.cobip.dto.grammar.GrammarTemplateMissionResponse;
 import com.cobip.dto.grammar.GrammarTemplatePracticeFileRequest;
 import com.cobip.dto.grammar.GrammarTemplatePracticeFileResponse;
 import com.cobip.dto.grammar.GrammarTemplateStatusUpdateRequest;
@@ -187,6 +189,51 @@ public class AdminGrammarTemplateController {
     ) {
         grammarTemplateService.deletePracticeFile(templateId, chapterId, fileId);
         return ResponseEntity.ok(ApiResponse.success("Grammar template practice file deleted.", null));
+    }
+
+    @GetMapping("/{templateId}/chapters/{chapterId}/missions")
+    public ResponseEntity<ApiResponse<List<GrammarTemplateMissionResponse>>> getChapterMissions(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                grammarTemplateService.getChapterMissions(templateId, chapterId)
+        ));
+    }
+
+    @PostMapping("/{templateId}/chapters/{chapterId}/missions")
+    public ResponseEntity<ApiResponse<GrammarTemplateMissionResponse>> createChapterMission(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId,
+        @RequestBody @Valid GrammarTemplateMissionRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Grammar template chapter mission created.",
+                grammarTemplateService.createChapterMission(templateId, chapterId, request)
+        ));
+    }
+
+    @PatchMapping("/{templateId}/chapters/{chapterId}/missions/{missionId}")
+    public ResponseEntity<ApiResponse<GrammarTemplateMissionResponse>> updateChapterMission(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId,
+        @PathVariable Long missionId,
+        @RequestBody @Valid GrammarTemplateMissionRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Grammar template chapter mission updated.",
+                grammarTemplateService.updateChapterMission(templateId, chapterId, missionId, request)
+        ));
+    }
+
+    @DeleteMapping("/{templateId}/chapters/{chapterId}/missions/{missionId}")
+    public ResponseEntity<ApiResponse<Void>> deleteChapterMission(
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId,
+        @PathVariable Long missionId
+    ) {
+        grammarTemplateService.deleteChapterMission(templateId, chapterId, missionId);
+        return ResponseEntity.ok(ApiResponse.success("Grammar template chapter mission deleted.", null));
     }
 
     @PostMapping("/{templateId}/media")
