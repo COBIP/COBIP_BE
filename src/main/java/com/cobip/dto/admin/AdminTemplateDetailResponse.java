@@ -11,6 +11,7 @@ import com.cobip.domain.template.TemplateDifficulty;
 import com.cobip.domain.template.TemplateTestCase;
 import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.dto.practice.TemplatePracticeMissionResponse;
+import com.cobip.dto.template.TemplateNextRecommendationResponse;
 
 import lombok.Getter;
 
@@ -37,6 +38,7 @@ public class AdminTemplateDetailResponse {
     private final String erd;
     private final String apiSpec;
     private final String projectStructure;
+    private final List<TemplateNextRecommendationResponse> nextRecommendations;
     private final List<AdminTemplateInterviewQuestionResponse> interviewQuestions;
     private final List<AdminTemplatePracticeFileResponse> practiceFiles;
     private final List<TemplatePracticeMissionResponse> missions;
@@ -78,6 +80,9 @@ public class AdminTemplateDetailResponse {
         this.erd = template.getErd();
         this.apiSpec = template.getApiSpec();
         this.projectStructure = template.getProjectStructure();
+        this.nextRecommendations = template.getNextRecommendations().stream()
+                .map(TemplateNextRecommendationResponse::from)
+                .toList();
         this.interviewQuestions = template.getInterviewQuestions().stream()
                 .map(AdminTemplateInterviewQuestionResponse::from)
                 .toList();

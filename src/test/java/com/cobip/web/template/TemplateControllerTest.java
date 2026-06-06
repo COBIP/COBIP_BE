@@ -20,6 +20,7 @@ import com.cobip.domain.template.Template;
 import com.cobip.domain.template.TemplateAccessLevel;
 import com.cobip.domain.template.TemplateDifficulty;
 import com.cobip.domain.template.TemplateInterviewQuestion;
+import com.cobip.domain.template.TemplateNextRecommendation;
 import com.cobip.domain.template.TemplateService;
 import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.domain.user.User;
@@ -99,6 +100,10 @@ class TemplateControllerTest {
         mockMvc.perform(get("/api/v1/templates/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.nextRecommendations[0].featureName").value("OAuth Login"))
+                .andExpect(jsonPath("$.data.nextRecommendations[0].reason").value("Learn OAuth after JWT."))
+                .andExpect(jsonPath("$.data.nextRecommendations[0].expectedLearning").value("Social login integration"))
+                .andExpect(jsonPath("$.data.nextRecommendations[0].priority").value(1))
                 .andExpect(jsonPath("$.data.interviewQuestions[0].question")
                         .value("Refresh Token을 왜 Redis에 저장하나요?"))
                 .andExpect(jsonPath("$.data.interviewQuestions[0].answerHint")
@@ -210,6 +215,12 @@ class TemplateControllerTest {
                 .interviewQuestions(List.of(TemplateInterviewQuestion.of(
                         "Refresh Token을 왜 Redis에 저장하나요?",
                         "로그아웃, 재발급, TTL 관리를 위해 Redis에 저장합니다."
+                )))
+                .nextRecommendations(List.of(TemplateNextRecommendation.of(
+                        "OAuth Login",
+                        "Learn OAuth after JWT.",
+                        "Social login integration",
+                        1
                 )))
                 .visibility(TemplateVisibility.PUBLIC)
                 .accessLevel(TemplateAccessLevel.FREE)

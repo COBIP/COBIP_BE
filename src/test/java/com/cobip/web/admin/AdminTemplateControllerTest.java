@@ -1,8 +1,10 @@
 package com.cobip.web.admin;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -11,18 +13,25 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+
 import com.cobip.domain.template.AdminTemplateService;
+import com.cobip.domain.template.Template;
 import com.cobip.domain.template.TemplateAccessLevel;
 import com.cobip.domain.template.TemplateDifficulty;
+import com.cobip.domain.template.TemplateNextRecommendation;
 import com.cobip.domain.template.TemplateVisibility;
 import com.cobip.domain.user.User;
+import com.cobip.domain.user.UserRole;
 import com.cobip.dto.admin.AdminTemplateCreateRequest;
+import com.cobip.dto.admin.AdminTemplateDetailResponse;
 import com.cobip.dto.admin.AdminTemplateExposureUpdateRequest;
 import com.cobip.dto.admin.AdminTemplateUpdateRequest;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.security.JwtAuthenticationFilter;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -75,11 +84,15 @@ class AdminTemplateControllerTest {
 
     @Test
     void getTemplateReturnsDetailResponseEnvelope() throws Exception {
-        when(adminTemplateService.getTemplate(1L)).thenReturn(null);
+        when(adminTemplateService.getTemplate(1L)).thenReturn(AdminTemplateDetailResponse.from(template()));
 
         mockMvc.perform(get("/api/v1/admin/templates/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.nextRecommendations[0].featureName").value("OAuth Login"))
+                .andExpect(jsonPath("$.data.nextRecommendations[0].reason").value("Learn OAuth after JWT."))
+                .andExpect(jsonPath("$.data.nextRecommendations[0].expectedLearning").value("Social login integration"))
+                .andExpect(jsonPath("$.data.nextRecommendations[0].priority").value(1));
     }
 
     @Test
@@ -104,6 +117,14 @@ class AdminTemplateControllerTest {
                               "source": "internal",
                               "published": true,
                               "accessLevel": "FREE",
+                              "nextRecommendations": [
+                                {
+                                  "featureName": "OAuth Login",
+                                  "reason": "Learn OAuth after JWT.",
+                                  "expectedLearning": "Social login integration",
+                                  "priority": 1
+                                }
+                              ],
                               "interviewQuestions": [
                                 {
                                   "question": "JWT를 사용하는 이유는?",
@@ -121,6 +142,13 @@ class AdminTemplateControllerTest {
                             """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+
+        ArgumentCaptor<AdminTemplateCreateRequest> requestCaptor =
+                ArgumentCaptor.forClass(AdminTemplateCreateRequest.class);
+        verify(adminTemplateService).createTemplate(requestCaptor.capture(), isNull(User.class));
+        assertThat(requestCaptor.getValue().getNextRecommendations()).hasSize(1);
+        assertThat(requestCaptor.getValue().getNextRecommendations().get(0).getFeatureName()).isEqualTo("OAuth Login");
+        assertThat(requestCaptor.getValue().getNextRecommendations().get(0).getPriority()).isEqualTo(1);
     }
 
     @Test
@@ -132,11 +160,26 @@ class AdminTemplateControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                             {
-                              "title": "Updated JWT Login"
+                              "title": "Updated JWT Login",
+                              "nextRecommendations": [
+                                {
+                                  "featureName": "Refresh Token",
+                                  "reason": "Extend the token refresh flow.",
+                                  "expectedLearning": "Secure session management",
+                                  "priority": 2
+                                }
+                              ]
                             }
                             """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+
+        ArgumentCaptor<AdminTemplateUpdateRequest> requestCaptor =
+                ArgumentCaptor.forClass(AdminTemplateUpdateRequest.class);
+        verify(adminTemplateService).updateTemplate(eq(1L), requestCaptor.capture(), isNull(User.class));
+        assertThat(requestCaptor.getValue().getNextRecommendations()).hasSize(1);
+        assertThat(requestCaptor.getValue().getNextRecommendations().get(0).getFeatureName()).isEqualTo("Refresh Token");
+        assertThat(requestCaptor.getValue().getNextRecommendations().get(0).getPriority()).isEqualTo(2);
     }
 
     @Test
@@ -177,5 +220,38 @@ class AdminTemplateControllerTest {
         mockMvc.perform(delete("/api/v1/admin/templates/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    private Template template() {
+        return Template.builder()
+                .id(1L)
+                .owner(user())
+                .title("JWT Template")
+                .description("JWT template description")
+                .category("backend")
+                .difficulty(TemplateDifficulty.BEGINNER)
+                .techStacks(List.of("Spring"))
+                .visibility(TemplateVisibility.PUBLIC)
+                .accessLevel(TemplateAccessLevel.FREE)
+                .nextRecommendations(List.of(TemplateNextRecommendation.of(
+                        "OAuth Login",
+                        "Learn OAuth after JWT.",
+                        "Social login integration",
+                        1
+                )))
+                .viewCount(0)
+                .favoriteCount(0)
+                .build();
+    }
+
+    private User user() {
+        return User.builder()
+                .id(1L)
+                .email("admin@example.com")
+                .password("password")
+                .nickname("admin")
+                .role(UserRole.ADMIN)
+                .emailVerified(true)
+                .build();
     }
 }

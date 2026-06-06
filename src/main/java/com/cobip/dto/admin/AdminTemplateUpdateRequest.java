@@ -60,6 +60,9 @@ public class AdminTemplateUpdateRequest {
     private List<AdminTemplateInterviewQuestionRequest> interviewQuestions;
 
     @Valid
+    private List<AdminTemplateNextRecommendationRequest> nextRecommendations;
+
+    @Valid
     private List<AdminTemplateTestCaseRequest> testCases;
 
     private Boolean published;
