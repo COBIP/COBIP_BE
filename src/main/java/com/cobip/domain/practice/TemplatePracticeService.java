@@ -2,8 +2,11 @@ package com.cobip.domain.practice;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
+import com.cobip.domain.learning.LearningProgress;
+import com.cobip.domain.learning.LearningProgressRepository;
 import com.cobip.domain.subscription.SubscriptionService;
 import com.cobip.domain.template.Template;
 import com.cobip.domain.template.TemplateRepository;
@@ -12,6 +15,8 @@ import com.cobip.domain.user.UserRepository;
 import com.cobip.dto.practice.TemplatePracticeDetailResponse;
 import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
 import com.cobip.dto.practice.TemplatePracticeProgressResponse;
+import com.cobip.dto.practice.TemplatePracticeQuizSubmissionRequest;
+import com.cobip.dto.practice.TemplatePracticeQuizSubmissionResponse;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -33,6 +38,7 @@ public class TemplatePracticeService {
     private final TemplatePracticeProgressRepository progressRepository;
     private final TemplatePracticeMissionProgressRepository missionProgressRepository;
     private final TemplatePracticeSubmissionRepository submissionRepository;
+    private final LearningProgressRepository learningProgressRepository;
     private final UserRepository userRepository;
     private final SubscriptionService subscriptionService;
     private final ObjectMapper objectMapper;
@@ -104,6 +110,39 @@ public class TemplatePracticeService {
         return TemplatePracticeProgressResponse.from(progress);
     }
 
+    @Transactional
+    public TemplatePracticeQuizSubmissionResponse submitQuizMission(
+        User user,
+        Long templateId,
+        Long missionId,
+        TemplatePracticeQuizSubmissionRequest request
+    ) {
+        User managedUser = getManagedUser(user);
+        Template template = getReadableTemplate(managedUser, templateId);
+        TemplatePracticeMission mission = missionRepository.findByIdAndTemplateId(missionId, template.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.TEMPLATE_PRACTICE_MISSION_NOT_FOUND));
+
+        QuizAnswer quizAnswer = quizAnswer(mission.getValidationJson());
+        boolean correct = isCorrectAnswer(quizAnswer.type(), quizAnswer.answer(), request.getAnswer());
+        TemplatePracticeProgress progress = progressRepository.findByUserIdAndTemplateId(
+                managedUser.getId(),
+                template.getId()
+        ).orElseGet(() -> progressRepository.save(TemplatePracticeProgress.start(managedUser, template, mission)));
+        TemplatePracticeMissionProgress missionProgress = missionProgressRepository
+                .findByUserIdAndMissionId(managedUser.getId(), mission.getId())
+                .orElseGet(() -> missionProgressRepository.save(TemplatePracticeMissionProgress.start(managedUser, mission)));
+
+        if (correct) {
+            missionProgress.changeStatus(TemplatePracticeMissionProgressStatus.COMPLETED);
+            refreshPracticeProgress(managedUser, template, mission, progress, TemplatePracticeMissionProgressStatus.COMPLETED);
+        } else {
+            missionProgress.changeStatus(TemplatePracticeMissionProgressStatus.IN_PROGRESS);
+        }
+        syncLearningProgress(managedUser, template, mission, progress.getProgressPercent(), correct);
+
+        return TemplatePracticeQuizSubmissionResponse.of(correct, quizAnswer.explanation(), progress.getProgressPercent());
+    }
+
     private TemplatePracticeProgress findProgress(User user, Long templateId) {
         if (user == null) {
             return null;
@@ -152,6 +191,83 @@ public class TemplatePracticeService {
         }
     }
 
+    private void refreshPracticeProgress(
+        User user,
+        Template template,
+        TemplatePracticeMission mission,
+        TemplatePracticeProgress progress,
+        TemplatePracticeMissionProgressStatus missionStatus
+    ) {
+        long totalMissionCount = missionRepository.countByTemplateId(template.getId());
+        long completedMissionCount = missionProgressRepository.countCompletedByUserAndTemplate(
+                user.getId(),
+                template.getId(),
+                TemplatePracticeMissionProgressStatus.COMPLETED
+        );
+        TemplatePracticeMission currentMission = missionStatus == TemplatePracticeMissionProgressStatus.COMPLETED
+                ? missionRepository
+                        .findFirstByTemplateIdAndOrderIndexGreaterThanOrderByOrderIndexAscIdAsc(
+                                template.getId(),
+                                mission.getOrderIndex()
+                        )
+                        .orElse(mission)
+                : mission;
+        progress.updateProgress((int) completedMissionCount, (int) totalMissionCount, currentMission);
+    }
+
+    private void syncLearningProgress(
+        User user,
+        Template template,
+        TemplatePracticeMission mission,
+        int progressPercent,
+        boolean correct
+    ) {
+        LearningProgress learningProgress = learningProgressRepository.findByUserIdAndTemplateId(user.getId(), template.getId())
+                .orElseGet(() -> learningProgressRepository.save(LearningProgress.start(user, template)));
+        learningProgress.recordQuizSubmission(progressPercent, mission.getTitle(), correct);
+    }
+
+    private QuizAnswer quizAnswer(JsonNode validationJson) {
+        if (validationJson == null || validationJson.isNull()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        String answer = textValue(validationJson, "answer");
+        if (answer == null || answer.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+        return new QuizAnswer(
+                textValue(validationJson, "type"),
+                answer,
+                textValue(validationJson, "explanation")
+        );
+    }
+
+    private boolean isCorrectAnswer(String type, String expectedAnswer, String submittedAnswer) {
+        if ("multiple_choice".equals(normalizeType(type))) {
+            return expectedAnswer.equals(submittedAnswer);
+        }
+        return normalizeAnswer(expectedAnswer).equals(normalizeAnswer(submittedAnswer));
+    }
+
+    private String normalizeType(String type) {
+        if (type == null) {
+            return "";
+        }
+        return type.trim()
+                .replace("-", "_")
+                .replaceAll("([a-z])([A-Z])", "$1_$2")
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeAnswer(String answer) {
+        return answer.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+    }
+
+    private String textValue(JsonNode jsonNode, String fieldName) {
+        JsonNode value = jsonNode.get(fieldName);
+        return value == null || value.isNull() ? null : value.asText();
+    }
+
     private Template getReadableTemplate(User user, Long templateId) {
         Template template = templateRepository.findByIdAndDeletedAtIsNull(templateId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TEMPLATE_NOT_FOUND));
@@ -170,5 +286,8 @@ public class TemplatePracticeService {
     private User getManagedUser(User user) {
         return userRepository.findById(user.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private record QuizAnswer(String type, String answer, String explanation) {
     }
 }

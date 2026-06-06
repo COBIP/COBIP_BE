@@ -65,4 +65,26 @@ public class LearningProgress extends BaseTimeEntity {
     public boolean isCompleted() {
         return progressPercent >= 100;
     }
+
+    public static LearningProgress start(User user, Template template) {
+        return LearningProgress.builder()
+                .user(user)
+                .template(template)
+                .progressPercent(0)
+                .solvedCount(0)
+                .correctCount(0)
+                .studySeconds(0)
+                .lastAccessedAt(LocalDateTime.now())
+                .build();
+    }
+
+    public void recordQuizSubmission(int progressPercent, String lastStep, boolean correct) {
+        this.progressPercent = Math.max(this.progressPercent, progressPercent);
+        this.lastStep = lastStep;
+        this.solvedCount++;
+        if (correct) {
+            this.correctCount++;
+        }
+        this.lastAccessedAt = LocalDateTime.now();
+    }
 }

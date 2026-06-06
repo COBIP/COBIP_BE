@@ -10,6 +10,8 @@ import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
 import com.cobip.dto.practice.TemplatePracticeProjectExecutionRequest;
 import com.cobip.dto.practice.TemplatePracticeProjectRunResponse;
 import com.cobip.dto.practice.TemplatePracticeProgressResponse;
+import com.cobip.dto.practice.TemplatePracticeQuizSubmissionRequest;
+import com.cobip.dto.practice.TemplatePracticeQuizSubmissionResponse;
 import com.cobip.dto.practice.TemplatePracticeSubmissionRequest;
 import com.cobip.dto.practice.TemplatePracticeSubmissionResponse;
 import com.cobip.global.common.ApiResponse;
@@ -60,6 +62,18 @@ public class TemplatePracticeController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(
                 templatePracticeService.updateMissionProgress(user, templateId, missionId, request)
+        ));
+    }
+
+    @PostMapping("/missions/{missionId}/quiz-submissions")
+    public ResponseEntity<ApiResponse<TemplatePracticeQuizSubmissionResponse>> submitQuizMission(
+        @AuthenticationPrincipal User user,
+        @PathVariable Long templateId,
+        @PathVariable Long missionId,
+        @RequestBody @Valid TemplatePracticeQuizSubmissionRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                templatePracticeService.submitQuizMission(user, templateId, missionId, request)
         ));
     }
 

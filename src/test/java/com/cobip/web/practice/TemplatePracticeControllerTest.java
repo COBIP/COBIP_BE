@@ -3,6 +3,7 @@ package com.cobip.web.practice;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -16,10 +17,12 @@ import com.cobip.dto.practice.TemplatePracticeCodeRunRequest;
 import com.cobip.domain.user.User;
 import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
 import com.cobip.dto.practice.TemplatePracticeProjectExecutionRequest;
+import com.cobip.dto.practice.TemplatePracticeQuizSubmissionRequest;
 import com.cobip.dto.practice.TemplatePracticeSubmissionRequest;
 import com.cobip.global.security.JwtAuthenticationFilter;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -83,6 +86,32 @@ class TemplatePracticeControllerTest {
                             """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void submitQuizMissionAcceptsAnswerRequest() throws Exception {
+        when(templatePracticeService.submitQuizMission(
+                isNull(User.class),
+                eq(1L),
+                eq(2L),
+                any(TemplatePracticeQuizSubmissionRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/templates/1/practice/missions/2/quiz-submissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "answer": "Authorization header Bearer token"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        ArgumentCaptor<TemplatePracticeQuizSubmissionRequest> requestCaptor =
+                ArgumentCaptor.forClass(TemplatePracticeQuizSubmissionRequest.class);
+        verify(templatePracticeService).submitQuizMission(isNull(User.class), eq(1L), eq(2L), requestCaptor.capture());
+        org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().getAnswer())
+                .isEqualTo("Authorization header Bearer token");
     }
 
     @Test
