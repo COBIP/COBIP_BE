@@ -67,6 +67,9 @@ public class AdminTemplateCreateRequest {
     private List<AdminTemplateInterviewQuestionRequest> interviewQuestions = new ArrayList<>();
 
     @Valid
+    private List<AdminTemplateNextRecommendationRequest> nextRecommendations = new ArrayList<>();
+
+    @Valid
     private List<AdminTemplateTestCaseRequest> testCases = new ArrayList<>();
 
     private Boolean published;

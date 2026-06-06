@@ -8,6 +8,7 @@ import com.cobip.domain.common.BaseTimeEntity;
 import com.cobip.domain.user.User;
 import com.cobip.dto.admin.AdminTemplateCreateRequest;
 import com.cobip.dto.admin.AdminTemplateInterviewQuestionRequest;
+import com.cobip.dto.admin.AdminTemplateNextRecommendationRequest;
 import com.cobip.dto.admin.AdminTemplateUpdateRequest;
 import com.cobip.dto.template.TemplateCreateRequest;
 import com.cobip.dto.template.TemplateUpdateRequest;
@@ -25,6 +26,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -106,6 +108,12 @@ public class Template extends BaseTimeEntity {
     @Builder.Default
     private List<TemplateInterviewQuestion> interviewQuestions = new ArrayList<>();
 
+    @ElementCollection
+    @CollectionTable(name = "template_next_recommendations", joinColumns = @JoinColumn(name = "template_id"))
+    @OrderBy("priority ASC")
+    @Builder.Default
+    private List<TemplateNextRecommendation> nextRecommendations = new ArrayList<>();
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private TemplateVisibility visibility;
@@ -178,6 +186,7 @@ public class Template extends BaseTimeEntity {
                 .apiSpec(request.getApiSpec())
                 .projectStructure(request.getProjectStructure())
                 .interviewQuestions(toAdminInterviewQuestions(request.getInterviewQuestions()))
+                .nextRecommendations(toNextRecommendations(request.getNextRecommendations()))
                 .visibility(visibility == null ? TemplateVisibility.PUBLIC : visibility)
                 .accessLevel(request.getAccessLevel() == null ? TemplateAccessLevel.FREE : request.getAccessLevel())
                 .thumbnailUrl(request.getPreviewImage())
@@ -280,6 +289,9 @@ public class Template extends BaseTimeEntity {
         if (request.getInterviewQuestions() != null) {
             this.interviewQuestions = toAdminInterviewQuestions(request.getInterviewQuestions());
         }
+        if (request.getNextRecommendations() != null) {
+            this.nextRecommendations = toNextRecommendations(request.getNextRecommendations());
+        }
         if (request.getPublished() != null) {
             this.visibility = visibilityFromPublished(request.getPublished());
         } else if (request.getVisibility() != null) {
@@ -356,6 +368,22 @@ public class Template extends BaseTimeEntity {
         }
         return questions.stream()
                 .map(question -> TemplateInterviewQuestion.of(question.getQuestion(), question.getAnswerHint()))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    }
+
+    private static List<TemplateNextRecommendation> toNextRecommendations(
+        List<AdminTemplateNextRecommendationRequest> recommendations
+    ) {
+        if (recommendations == null) {
+            return new ArrayList<>();
+        }
+        return recommendations.stream()
+                .map(recommendation -> TemplateNextRecommendation.of(
+                        recommendation.getFeatureName(),
+                        recommendation.getReason(),
+                        recommendation.getExpectedLearning(),
+                        recommendation.getPriority()
+                ))
                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     }
 

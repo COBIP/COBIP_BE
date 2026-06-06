@@ -26,6 +26,7 @@ public class TemplateDetailResponse {
     private final String erd;
     private final String apiSpec;
     private final String projectStructure;
+    private final List<TemplateNextRecommendationResponse> nextRecommendations;
     private final List<TemplateInterviewQuestionResponse> interviewQuestions;
     private final String fileUrl;
     private final String thumbnailUrl;
@@ -51,6 +52,9 @@ public class TemplateDetailResponse {
         this.erd = template.getErd();
         this.apiSpec = template.getApiSpec();
         this.projectStructure = template.getProjectStructure();
+        this.nextRecommendations = template.getNextRecommendations().stream()
+                .map(TemplateNextRecommendationResponse::from)
+                .toList();
         this.interviewQuestions = template.getInterviewQuestions().stream()
                 .map(TemplateInterviewQuestionResponse::from)
                 .toList();

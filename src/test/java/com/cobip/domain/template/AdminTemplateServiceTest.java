@@ -2,6 +2,7 @@ package com.cobip.domain.template;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,8 +19,11 @@ import com.cobip.domain.practice.TemplatePracticeMissionRepository;
 import com.cobip.domain.practice.TemplatePracticeMissionType;
 import com.cobip.domain.user.User;
 import com.cobip.domain.user.UserRole;
+import com.cobip.dto.admin.AdminTemplateCreateRequest;
 import com.cobip.dto.admin.AdminTemplateDetailResponse;
 import com.cobip.dto.admin.AdminTemplateExposureUpdateRequest;
+import com.cobip.dto.admin.AdminTemplateNextRecommendationRequest;
+import com.cobip.dto.admin.AdminTemplateUpdateRequest;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
 
@@ -110,6 +114,46 @@ class AdminTemplateServiceTest {
         assertThat(response.getMissions()).hasSize(1);
         assertThat(response.getTestCases()).hasSize(1);
         assertThat(response.getTestCases().get(0).getExpectedOutput()).isEqualTo("3");
+        assertThat(response.getNextRecommendations()).hasSize(1);
+        assertThat(response.getNextRecommendations().get(0).getFeatureName()).isEqualTo("OAuth Login");
+        assertThat(response.getNextRecommendations().get(0).getReason()).isEqualTo("Learn OAuth after JWT.");
+        assertThat(response.getNextRecommendations().get(0).getExpectedLearning()).isEqualTo("Social login integration");
+        assertThat(response.getNextRecommendations().get(0).getPriority()).isEqualTo(1);
+    }
+
+    @Test
+    void createTemplateStoresNextRecommendations() {
+        User adminUser = user(1L, UserRole.ADMIN);
+        AdminTemplateCreateRequest request = createRequest(
+                List.of(nextRecommendation("OAuth Login", "Learn OAuth after JWT.", "Social login integration", 1))
+        );
+        when(templateRepository.save(any(Template.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        mockEmptyDetailChildren(null);
+
+        AdminTemplateDetailResponse response = adminTemplateService.createTemplate(request, adminUser);
+
+        assertThat(response.getNextRecommendations()).hasSize(1);
+        assertThat(response.getNextRecommendations().get(0).getFeatureName()).isEqualTo("OAuth Login");
+        assertThat(response.getNextRecommendations().get(0).getPriority()).isEqualTo(1);
+    }
+
+    @Test
+    void updateTemplateReplacesNextRecommendations() {
+        User adminUser = user(1L, UserRole.ADMIN);
+        Template template = template(10L, user(2L, UserRole.USER));
+        AdminTemplateUpdateRequest request = updateRequest(
+                List.of(nextRecommendation("Refresh Token", "Extend the token refresh flow.", "Secure session management", 2))
+        );
+        when(templateRepository.findByIdAndDeletedAtIsNull(10L)).thenReturn(Optional.of(template));
+        mockEmptyDetailChildren(10L);
+
+        AdminTemplateDetailResponse response = adminTemplateService.updateTemplate(10L, request, adminUser);
+
+        assertThat(response.getNextRecommendations()).hasSize(1);
+        assertThat(response.getNextRecommendations().get(0).getFeatureName()).isEqualTo("Refresh Token");
+        assertThat(response.getNextRecommendations().get(0).getReason()).isEqualTo("Extend the token refresh flow.");
+        assertThat(response.getNextRecommendations().get(0).getExpectedLearning()).isEqualTo("Secure session management");
+        assertThat(response.getNextRecommendations().get(0).getPriority()).isEqualTo(2);
     }
 
     @Test
@@ -178,6 +222,12 @@ class AdminTemplateServiceTest {
                 .source("internal")
                 .thumbnailUrl("https://cdn.example.com/preview.png")
                 .interviewQuestions(List.of(TemplateInterviewQuestion.of("JWT를 사용하는 이유는?", "상태 비저장 인증")))
+                .nextRecommendations(List.of(TemplateNextRecommendation.of(
+                        "OAuth Login",
+                        "Learn OAuth after JWT.",
+                        "Social login integration",
+                        1
+                )))
                 .viewCount(0)
                 .favoriteCount(0)
                 .build();
@@ -198,5 +248,35 @@ class AdminTemplateServiceTest {
         when(practiceFileRepository.findByTemplateIdOrderByOrderIndexAscIdAsc(templateId)).thenReturn(List.of());
         when(practiceMissionRepository.findByTemplateIdOrderByOrderIndexAscIdAsc(templateId)).thenReturn(List.of());
         when(templateTestCaseRepository.findByTemplateIdOrderByOrderIndexAscIdAsc(templateId)).thenReturn(List.of());
+    }
+
+    private AdminTemplateCreateRequest createRequest(List<AdminTemplateNextRecommendationRequest> nextRecommendations) {
+        AdminTemplateCreateRequest request = new AdminTemplateCreateRequest();
+        ReflectionTestUtils.setField(request, "title", "Template");
+        ReflectionTestUtils.setField(request, "description", "Description");
+        ReflectionTestUtils.setField(request, "category", "backend");
+        ReflectionTestUtils.setField(request, "difficulty", TemplateDifficulty.BEGINNER);
+        ReflectionTestUtils.setField(request, "nextRecommendations", nextRecommendations);
+        return request;
+    }
+
+    private AdminTemplateUpdateRequest updateRequest(List<AdminTemplateNextRecommendationRequest> nextRecommendations) {
+        AdminTemplateUpdateRequest request = new AdminTemplateUpdateRequest();
+        ReflectionTestUtils.setField(request, "nextRecommendations", nextRecommendations);
+        return request;
+    }
+
+    private AdminTemplateNextRecommendationRequest nextRecommendation(
+        String featureName,
+        String reason,
+        String expectedLearning,
+        Integer priority
+    ) {
+        AdminTemplateNextRecommendationRequest request = new AdminTemplateNextRecommendationRequest();
+        ReflectionTestUtils.setField(request, "featureName", featureName);
+        ReflectionTestUtils.setField(request, "reason", reason);
+        ReflectionTestUtils.setField(request, "expectedLearning", expectedLearning);
+        ReflectionTestUtils.setField(request, "priority", priority);
+        return request;
     }
 }
