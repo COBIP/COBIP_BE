@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Optional;
 
 import com.cobip.domain.coding.CodingLanguage;
+import com.cobip.domain.learning.LearningProgress;
+import com.cobip.domain.learning.LearningProgressRepository;
 import com.cobip.domain.subscription.SubscriptionService;
 import com.cobip.domain.template.Template;
 import com.cobip.domain.template.TemplateAccessLevel;
@@ -22,6 +24,8 @@ import com.cobip.domain.user.UserStatus;
 import com.cobip.dto.practice.TemplatePracticeDetailResponse;
 import com.cobip.dto.practice.TemplatePracticeMissionProgressUpdateRequest;
 import com.cobip.dto.practice.TemplatePracticeProgressResponse;
+import com.cobip.dto.practice.TemplatePracticeQuizSubmissionRequest;
+import com.cobip.dto.practice.TemplatePracticeQuizSubmissionResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +58,9 @@ class TemplatePracticeServiceTest {
     private TemplatePracticeSubmissionRepository submissionRepository;
 
     @Mock
+    private LearningProgressRepository learningProgressRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
@@ -71,6 +78,7 @@ class TemplatePracticeServiceTest {
                 progressRepository,
                 missionProgressRepository,
                 submissionRepository,
+                learningProgressRepository,
                 userRepository,
                 subscriptionService,
                 objectMapper
@@ -167,9 +175,146 @@ class TemplatePracticeServiceTest {
         assertThat(response.getCurrentMissionId()).isEqualTo(2L);
     }
 
+    @Test
+    void submitQuizMissionCompletesMissionAndSyncsLearningProgressWhenAnswerIsCorrect() {
+        User user = user(1L);
+        Template template = template(user);
+        TemplatePracticeMission firstMission = quizMission(
+                template,
+                1L,
+                1,
+                "short_answer",
+                "Bearer token",
+                "JWT filters validate tokens before controller handling."
+        );
+        TemplatePracticeMission nextMission = mission(template, 2L, 2);
+        TemplatePracticeProgress practiceProgress = TemplatePracticeProgress.start(user, template, firstMission);
+        TemplatePracticeMissionProgress missionProgress = TemplatePracticeMissionProgress.start(user, firstMission);
+        LearningProgress learningProgress = learningProgress(user, template);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(templateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
+        when(missionRepository.findByIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(firstMission));
+        when(progressRepository.findByUserIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(practiceProgress));
+        when(missionProgressRepository.findByUserIdAndMissionId(1L, 1L)).thenReturn(Optional.of(missionProgress));
+        when(missionRepository.countByTemplateId(1L)).thenReturn(2L);
+        when(missionProgressRepository.countCompletedByUserAndTemplate(
+                1L,
+                1L,
+                TemplatePracticeMissionProgressStatus.COMPLETED
+        )).thenReturn(1L);
+        when(missionRepository.findFirstByTemplateIdAndOrderIndexGreaterThanOrderByOrderIndexAscIdAsc(1L, 1))
+                .thenReturn(Optional.of(nextMission));
+        when(learningProgressRepository.findByUserIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(learningProgress));
+
+        TemplatePracticeQuizSubmissionResponse response = templatePracticeService.submitQuizMission(
+                user,
+                1L,
+                1L,
+                quizRequest(" bearer TOKEN ")
+        );
+
+        assertThat(response.isCorrect()).isTrue();
+        assertThat(response.getStatus()).isEqualTo(TemplatePracticeSubmissionStatus.ACCEPTED);
+        assertThat(response.getMessage()).isEqualTo("정답입니다.");
+        assertThat(response.getExplanation()).isEqualTo("JWT filters validate tokens before controller handling.");
+        assertThat(response.getProgressPercent()).isEqualTo(50);
+        assertThat(missionProgress.getStatus()).isEqualTo(TemplatePracticeMissionProgressStatus.COMPLETED);
+        assertThat(learningProgress.getProgressPercent()).isEqualTo(50);
+        assertThat(learningProgress.getLastStep()).isEqualTo("JWT login");
+        assertThat(learningProgress.getSolvedCount()).isEqualTo(1);
+        assertThat(learningProgress.getCorrectCount()).isEqualTo(1);
+    }
+
+    @Test
+    void submitQuizMissionKeepsMissionInProgressWhenAnswerIsWrong() {
+        User user = user(1L);
+        Template template = template(user);
+        TemplatePracticeMission mission = quizMission(
+                template,
+                1L,
+                1,
+                "multiple_choice",
+                "A",
+                "Choose the filter responsibility."
+        );
+        TemplatePracticeProgress practiceProgress = TemplatePracticeProgress.start(user, template, mission);
+        TemplatePracticeMissionProgress missionProgress = TemplatePracticeMissionProgress.start(user, mission);
+        LearningProgress learningProgress = learningProgress(user, template);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(templateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
+        when(missionRepository.findByIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(mission));
+        when(progressRepository.findByUserIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(practiceProgress));
+        when(missionProgressRepository.findByUserIdAndMissionId(1L, 1L)).thenReturn(Optional.of(missionProgress));
+        when(learningProgressRepository.findByUserIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(learningProgress));
+
+        TemplatePracticeQuizSubmissionResponse response = templatePracticeService.submitQuizMission(
+                user,
+                1L,
+                1L,
+                quizRequest("B")
+        );
+
+        assertThat(response.isCorrect()).isFalse();
+        assertThat(response.getStatus()).isEqualTo(TemplatePracticeSubmissionStatus.WRONG_ANSWER);
+        assertThat(response.getMessage()).isEqualTo("오답입니다.");
+        assertThat(response.getProgressPercent()).isZero();
+        assertThat(missionProgress.getStatus()).isEqualTo(TemplatePracticeMissionProgressStatus.IN_PROGRESS);
+        assertThat(learningProgress.getSolvedCount()).isEqualTo(1);
+        assertThat(learningProgress.getCorrectCount()).isZero();
+    }
+
+    @Test
+    void submitQuizMissionNormalizesFillBlankAnswer() {
+        User user = user(1L);
+        Template template = template(user);
+        TemplatePracticeMission mission = quizMission(
+                template,
+                1L,
+                1,
+                "fill_blank",
+                "SecurityContextHolder",
+                "Authentication is stored in the security context."
+        );
+        TemplatePracticeProgress practiceProgress = TemplatePracticeProgress.start(user, template, mission);
+        TemplatePracticeMissionProgress missionProgress = TemplatePracticeMissionProgress.start(user, mission);
+        LearningProgress learningProgress = learningProgress(user, template);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(templateRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(template));
+        when(missionRepository.findByIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(mission));
+        when(progressRepository.findByUserIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(practiceProgress));
+        when(missionProgressRepository.findByUserIdAndMissionId(1L, 1L)).thenReturn(Optional.of(missionProgress));
+        when(missionRepository.countByTemplateId(1L)).thenReturn(1L);
+        when(missionProgressRepository.countCompletedByUserAndTemplate(
+                1L,
+                1L,
+                TemplatePracticeMissionProgressStatus.COMPLETED
+        )).thenReturn(1L);
+        when(missionRepository.findFirstByTemplateIdAndOrderIndexGreaterThanOrderByOrderIndexAscIdAsc(1L, 1))
+                .thenReturn(Optional.empty());
+        when(learningProgressRepository.findByUserIdAndTemplateId(1L, 1L)).thenReturn(Optional.of(learningProgress));
+
+        TemplatePracticeQuizSubmissionResponse response = templatePracticeService.submitQuizMission(
+                user,
+                1L,
+                1L,
+                quizRequest(" security context holder ")
+        );
+
+        assertThat(response.isCorrect()).isTrue();
+        assertThat(response.getStatus()).isEqualTo(TemplatePracticeSubmissionStatus.ACCEPTED);
+        assertThat(response.getProgressPercent()).isEqualTo(100);
+        assertThat(missionProgress.getStatus()).isEqualTo(TemplatePracticeMissionProgressStatus.COMPLETED);
+    }
+
     private TemplatePracticeMissionProgressUpdateRequest request(TemplatePracticeMissionProgressStatus status) {
         TemplatePracticeMissionProgressUpdateRequest request = new TemplatePracticeMissionProgressUpdateRequest();
         ReflectionTestUtils.setField(request, "status", status);
+        return request;
+    }
+
+    private TemplatePracticeQuizSubmissionRequest quizRequest(String answer) {
+        TemplatePracticeQuizSubmissionRequest request = new TemplatePracticeQuizSubmissionRequest();
+        ReflectionTestUtils.setField(request, "answer", answer);
         return request;
     }
 
@@ -213,6 +358,43 @@ class TemplatePracticeServiceTest {
                 .missionType(TemplatePracticeMissionType.IMPLEMENTATION)
                 .orderIndex(orderIndex)
                 .guideContent("Use Spring Security")
+                .build();
+    }
+
+    private TemplatePracticeMission quizMission(
+        Template template,
+        Long id,
+        int orderIndex,
+        String type,
+        String answer,
+        String explanation
+    ) {
+        var validationJson = objectMapper.createObjectNode();
+        validationJson.put("type", type);
+        validationJson.put("answer", answer);
+        validationJson.put("explanation", explanation);
+        return TemplatePracticeMission.builder()
+                .id(id)
+                .template(template)
+                .title("JWT login")
+                .description("Answer the quiz")
+                .missionType(TemplatePracticeMissionType.CONCEPT)
+                .orderIndex(orderIndex)
+                .guideContent("Read the guide")
+                .validationJson(validationJson)
+                .build();
+    }
+
+    private LearningProgress learningProgress(User user, Template template) {
+        return LearningProgress.builder()
+                .id(1L)
+                .user(user)
+                .template(template)
+                .progressPercent(0)
+                .lastStep("start")
+                .solvedCount(0)
+                .correctCount(0)
+                .studySeconds(0)
                 .build();
     }
 
