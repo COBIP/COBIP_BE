@@ -13,8 +13,13 @@ import com.cobip.domain.coding.CodeExecutionResult;
 import com.cobip.domain.coding.CodingLanguage;
 import com.cobip.domain.coding.CodingSubmissionStatus;
 import com.cobip.domain.learning.GrammarLearningProgressService;
+import com.cobip.domain.practice.ProjectExecutionClient;
+import com.cobip.domain.practice.ProjectExecutionResult;
+import com.cobip.domain.practice.TemplatePracticeSubmissionStatus;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunRequest;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowRequest;
+import com.cobip.dto.grammar.GrammarTemplateMissionSubmissionFileRequest;
+import com.cobip.dto.grammar.GrammarTemplateMissionSubmissionRequest;
 import com.cobip.global.exception.CustomException;
 import com.cobip.global.exception.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,7 +41,13 @@ class GrammarTemplateExecutionServiceTest {
     private GrammarTemplateChapterRepository grammarTemplateChapterRepository;
 
     @Mock
+    private GrammarTemplateChapterMissionRepository grammarTemplateChapterMissionRepository;
+
+    @Mock
     private CodeExecutionClient codeExecutionClient;
+
+    @Mock
+    private ProjectExecutionClient projectExecutionClient;
 
     @Mock
     private GrammarLearningProgressService grammarLearningProgressService;
@@ -50,7 +61,9 @@ class GrammarTemplateExecutionServiceTest {
         grammarTemplateExecutionService = new GrammarTemplateExecutionService(
                 grammarTemplateRepository,
                 grammarTemplateChapterRepository,
+                grammarTemplateChapterMissionRepository,
                 codeExecutionClient,
+                projectExecutionClient,
                 grammarLearningProgressService
         );
     }
@@ -201,6 +214,69 @@ class GrammarTemplateExecutionServiceTest {
                 .isEqualTo(ErrorCode.GRAMMAR_TEMPLATE_NOT_FOUND);
     }
 
+    @Test
+    void submitMissionReturnsAcceptedWhenAnswerMatches() {
+        GrammarTemplate template = template();
+        GrammarTemplateChapter chapter = chapter(template);
+        GrammarTemplateChapterMission mission = mission(template, chapter, objectMapper.createObjectNode().put("answer", "int count = 1;"));
+        GrammarTemplateMissionSubmissionRequest request = missionSubmissionRequest(
+                CodingLanguage.JAVA,
+                "src/Main.java",
+                "public class Main { void test(){ int count = 1; } }"
+        );
+        when(grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(1L, GrammarTemplateStatus.PUBLISHED))
+                .thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+        when(grammarTemplateChapterMissionRepository.findByIdAndTemplateIdAndChapterId(100L, 1L, 10L))
+                .thenReturn(Optional.of(mission));
+
+        var response = grammarTemplateExecutionService.submitMission(null, 1L, 10L, 100L, request);
+
+        assertThat(response.getStatus()).isEqualTo(TemplatePracticeSubmissionStatus.ACCEPTED);
+        assertThat(response.getPassedCount()).isEqualTo(1);
+        assertThat(response.getTotalCount()).isEqualTo(1);
+    }
+
+    @Test
+    void submitMissionUsesProjectExecutionWhenTestCommandExists() {
+        GrammarTemplate template = template();
+        GrammarTemplateChapter chapter = chapter(template);
+        GrammarTemplateChapterMission mission = mission(
+                template,
+                chapter,
+                objectMapper.createObjectNode()
+                        .put("testCommand", "./gradlew test")
+                        .put("dockerImage", "gradle:8.14-jdk21")
+        );
+        GrammarTemplateMissionSubmissionRequest request = missionSubmissionRequest(
+                CodingLanguage.JAVA,
+                "src/Main.java",
+                "public class Main {}"
+        );
+        when(grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(1L, GrammarTemplateStatus.PUBLISHED))
+                .thenReturn(Optional.of(template));
+        when(grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(10L, 1L))
+                .thenReturn(Optional.of(chapter));
+        when(grammarTemplateChapterMissionRepository.findByIdAndTemplateIdAndChapterId(100L, 1L, 10L))
+                .thenReturn(Optional.of(mission));
+        when(projectExecutionClient.execute(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new ProjectExecutionResult(
+                        TemplatePracticeSubmissionStatus.ACCEPTED,
+                        0,
+                        "BUILD SUCCESSFUL",
+                        "",
+                        "Mission accepted.",
+                        1000L
+                ));
+
+        var response = grammarTemplateExecutionService.submitMission(null, 1L, 10L, 100L, request);
+
+        assertThat(response.getStatus()).isEqualTo(TemplatePracticeSubmissionStatus.ACCEPTED);
+        assertThat(response.getStdout()).isEqualTo("BUILD SUCCESSFUL");
+        assertThat(response.getPassedCount()).isEqualTo(1);
+    }
+
     private GrammarTemplateCodeRunRequest runRequest() {
         GrammarTemplateCodeRunRequest request = new GrammarTemplateCodeRunRequest();
         ReflectionTestUtils.setField(request, "language", CodingLanguage.PYTHON);
@@ -213,6 +289,20 @@ class GrammarTemplateExecutionServiceTest {
         GrammarTemplateExecutionFlowRequest request = new GrammarTemplateExecutionFlowRequest();
         ReflectionTestUtils.setField(request, "language", CodingLanguage.PYTHON);
         ReflectionTestUtils.setField(request, "sourceCode", "x = 10\nprint(x)");
+        return request;
+    }
+
+    private GrammarTemplateMissionSubmissionRequest missionSubmissionRequest(
+        CodingLanguage language,
+        String filePath,
+        String content
+    ) {
+        GrammarTemplateMissionSubmissionRequest request = new GrammarTemplateMissionSubmissionRequest();
+        GrammarTemplateMissionSubmissionFileRequest file = new GrammarTemplateMissionSubmissionFileRequest();
+        ReflectionTestUtils.setField(request, "language", language);
+        ReflectionTestUtils.setField(file, "filePath", filePath);
+        ReflectionTestUtils.setField(file, "content", content);
+        ReflectionTestUtils.setField(request, "submittedCode", java.util.List.of(file));
         return request;
     }
 
@@ -259,6 +349,24 @@ class GrammarTemplateExecutionServiceTest {
                 .orderIndex(1)
                 .contentJson(objectMapper.createObjectNode().put("type", "doc"))
                 .searchableText("variables")
+                .build();
+    }
+
+    private GrammarTemplateChapterMission mission(
+        GrammarTemplate template,
+        GrammarTemplateChapter chapter,
+        com.fasterxml.jackson.databind.JsonNode validationJson
+    ) {
+        return GrammarTemplateChapterMission.builder()
+                .id(100L)
+                .template(template)
+                .chapter(chapter)
+                .title("Mission")
+                .description("description")
+                .missionType(GrammarTemplateMissionType.MISSION)
+                .orderIndex(1)
+                .guideContent("guide")
+                .validationJson(validationJson)
                 .build();
     }
 }
