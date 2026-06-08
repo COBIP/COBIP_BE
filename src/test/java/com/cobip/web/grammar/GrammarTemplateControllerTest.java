@@ -16,6 +16,7 @@ import com.cobip.domain.grammar.GrammarTemplateLanguage;
 import com.cobip.domain.grammar.GrammarTemplateService;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunRequest;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowRequest;
+import com.cobip.dto.grammar.GrammarTemplateMissionSubmissionRequest;
 import com.cobip.dto.grammar.GrammarTemplatePublicSummaryResponse;
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.security.JwtAuthenticationFilter;
@@ -127,6 +128,33 @@ class GrammarTemplateControllerTest {
                             {
                               "language": "PYTHON",
                               "sourceCode": "x = 10\\nprint(x)"
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void submitMissionAcceptsSubmittedCodeRequest() throws Exception {
+        when(grammarTemplateExecutionService.submitMission(
+                any(),
+                eq(1L),
+                eq(10L),
+                eq(100L),
+                any(GrammarTemplateMissionSubmissionRequest.class)
+        )).thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/grammar-templates/1/chapters/10/missions/100/submit")
+                        .contentType("application/json")
+                        .content("""
+                            {
+                              "language": "JAVA",
+                              "submittedCode": [
+                                {
+                                  "filePath": "src/Main.java",
+                                  "content": "public class Main {}"
+                                }
+                              ]
                             }
                             """))
                 .andExpect(status().isOk())

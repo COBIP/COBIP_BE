@@ -11,6 +11,8 @@ import com.cobip.dto.grammar.GrammarTemplateCodeRunRequest;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunResponse;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowRequest;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowResponse;
+import com.cobip.dto.grammar.GrammarTemplateMissionSubmissionRequest;
+import com.cobip.dto.grammar.GrammarTemplateMissionSubmissionResponse;
 import com.cobip.dto.grammar.GrammarTemplatePublicDetailResponse;
 import com.cobip.dto.grammar.GrammarTemplatePublicSummaryResponse;
 import com.cobip.global.common.ApiResponse;
@@ -87,6 +89,19 @@ public class GrammarTemplateController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(
                 grammarTemplateExecutionService.getExecutionFlow(user, templateId, chapterId, request)
+        ));
+    }
+
+    @PostMapping("/{templateId}/chapters/{chapterId}/missions/{missionId}/submit")
+    public ResponseEntity<ApiResponse<GrammarTemplateMissionSubmissionResponse>> submitMission(
+        @AuthenticationPrincipal User user,
+        @PathVariable Long templateId,
+        @PathVariable Long chapterId,
+        @PathVariable Long missionId,
+        @RequestBody @Valid GrammarTemplateMissionSubmissionRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                grammarTemplateExecutionService.submitMission(user, templateId, chapterId, missionId, request)
         ));
     }
 }

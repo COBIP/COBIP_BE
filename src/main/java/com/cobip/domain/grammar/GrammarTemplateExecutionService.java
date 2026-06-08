@@ -2,6 +2,7 @@ package com.cobip.domain.grammar;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,11 +15,18 @@ import com.cobip.domain.coding.CodeExecutionResult;
 import com.cobip.domain.coding.CodingLanguage;
 import com.cobip.domain.coding.CodingSubmissionStatus;
 import com.cobip.domain.learning.GrammarLearningProgressService;
+import com.cobip.domain.practice.ProjectExecutionClient;
+import com.cobip.domain.practice.ProjectExecutionFile;
+import com.cobip.domain.practice.ProjectExecutionRequest;
+import com.cobip.domain.practice.ProjectExecutionResult;
+import com.cobip.domain.practice.TemplatePracticeSubmissionStatus;
 import com.cobip.domain.user.User;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunRequest;
 import com.cobip.dto.grammar.GrammarTemplateCodeRunResponse;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowRequest;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowResponse;
+import com.cobip.dto.grammar.GrammarTemplateMissionSubmissionRequest;
+import com.cobip.dto.grammar.GrammarTemplateMissionSubmissionResponse;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowResponse.ExecutionFlowStep;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowResponse.OutputSnapshot;
 import com.cobip.dto.grammar.GrammarTemplateExecutionFlowResponse.VariableSnapshot;
@@ -36,6 +44,10 @@ public class GrammarTemplateExecutionService {
 
     private static final int DEFAULT_TIME_LIMIT_MILLIS = 5000;
     private static final int DEFAULT_MEMORY_LIMIT_MB = 128;
+    private static final int DEFAULT_PROJECT_MEMORY_LIMIT_MB = 1024;
+    private static final int PROJECT_SUBMISSION_MAX_TIME_LIMIT_MILLIS = 60000;
+    private static final String DEFAULT_PROJECT_IMAGE = "gradle:8.14-jdk21";
+    private static final String DEFAULT_PROJECT_COMMAND = "gradle test --no-daemon";
     private static final Pattern ASSIGNMENT_PATTERN = Pattern.compile(
             "^(?:final\\s+)?(?:(int|long|double|float|boolean|char|String|var|let|const)\\s+)?"
                     + "([A-Za-z_$][A-Za-z0-9_$]*)\\s*=\\s*(.+?)\\s*;?$"
@@ -46,7 +58,9 @@ public class GrammarTemplateExecutionService {
 
     private final GrammarTemplateRepository grammarTemplateRepository;
     private final GrammarTemplateChapterRepository grammarTemplateChapterRepository;
+    private final GrammarTemplateChapterMissionRepository grammarTemplateChapterMissionRepository;
     private final CodeExecutionClient codeExecutionClient;
+    private final ProjectExecutionClient projectExecutionClient;
     private final GrammarLearningProgressService grammarLearningProgressService;
     private final JavaRuntimeExecutionFlowTracer javaRuntimeExecutionFlowTracer = new JavaRuntimeExecutionFlowTracer();
 
@@ -100,11 +114,102 @@ public class GrammarTemplateExecutionService {
         );
     }
 
+    @Transactional
+    public GrammarTemplateMissionSubmissionResponse submitMission(
+        User user,
+        Long templateId,
+        Long chapterId,
+        Long missionId,
+        GrammarTemplateMissionSubmissionRequest request
+    ) {
+        validatePublishedChapter(templateId, chapterId);
+        GrammarTemplateChapterMission mission = getMission(templateId, chapterId, missionId);
+        grammarLearningProgressService.recordAccess(user, templateId, chapterId, 0);
+
+        if (hasProjectValidation(mission)) {
+            ProjectExecutionResult result = projectExecutionClient.execute(projectRequest(mission, request));
+            return GrammarTemplateMissionSubmissionResponse.ofProject(templateId, chapterId, missionId, result);
+        }
+
+        return validateAnswerMission(templateId, chapterId, missionId, mission, request);
+    }
+
     private void validatePublishedChapter(Long templateId, Long chapterId) {
         grammarTemplateRepository.findByIdAndStatusAndDeletedAtIsNull(templateId, GrammarTemplateStatus.PUBLISHED)
                 .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_NOT_FOUND));
         grammarTemplateChapterRepository.findByIdAndTemplateIdAndDeletedAtIsNull(chapterId, templateId)
                 .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_CHAPTER_NOT_FOUND));
+    }
+
+    private GrammarTemplateChapterMission getMission(Long templateId, Long chapterId, Long missionId) {
+        return grammarTemplateChapterMissionRepository.findByIdAndTemplateIdAndChapterId(missionId, templateId, chapterId)
+                .orElseThrow(() -> new CustomException(ErrorCode.GRAMMAR_TEMPLATE_MISSION_NOT_FOUND));
+    }
+
+    private boolean hasProjectValidation(GrammarTemplateChapterMission mission) {
+        return textValue(mission.getValidationJson(), "testCommand", null) != null
+                || textValue(mission.getValidationJson(), "runCommand", null) != null;
+    }
+
+    private ProjectExecutionRequest projectRequest(
+        GrammarTemplateChapterMission mission,
+        GrammarTemplateMissionSubmissionRequest request
+    ) {
+        return new ProjectExecutionRequest(
+                request.getSubmittedCode().stream()
+                        .map(file -> new ProjectExecutionFile(file.getFilePath(), file.getContent()))
+                        .toList(),
+                textValue(mission.getValidationJson(), "testCommand", DEFAULT_PROJECT_COMMAND),
+                textValue(mission.getValidationJson(), "dockerImage", DEFAULT_PROJECT_IMAGE),
+                cappedIntValue(
+                        mission.getValidationJson(),
+                        "timeLimitMillis",
+                        PROJECT_SUBMISSION_MAX_TIME_LIMIT_MILLIS,
+                        PROJECT_SUBMISSION_MAX_TIME_LIMIT_MILLIS
+                ),
+                intValue(mission.getValidationJson(), "memoryLimitMb", DEFAULT_PROJECT_MEMORY_LIMIT_MB)
+        );
+    }
+
+    private GrammarTemplateMissionSubmissionResponse validateAnswerMission(
+        Long templateId,
+        Long chapterId,
+        Long missionId,
+        GrammarTemplateChapterMission mission,
+        GrammarTemplateMissionSubmissionRequest request
+    ) {
+        String answer = textValue(mission.getValidationJson(), "answer", null);
+        if (answer == null || answer.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        String normalizedAnswer = normalizeText(answer);
+        boolean matched = request.getSubmittedCode().stream()
+                .sorted(Comparator.comparing(file -> file.getFilePath().length()))
+                .map(file -> normalizeText(file.getContent()))
+                .anyMatch(content -> content.contains(normalizedAnswer));
+
+        if (matched) {
+            return GrammarTemplateMissionSubmissionResponse.ofAnswerValidation(
+                    templateId,
+                    chapterId,
+                    missionId,
+                    TemplatePracticeSubmissionStatus.ACCEPTED,
+                    "Mission accepted.",
+                    1,
+                    1
+            );
+        }
+
+        return GrammarTemplateMissionSubmissionResponse.ofAnswerValidation(
+                templateId,
+                chapterId,
+                missionId,
+                TemplatePracticeSubmissionStatus.WRONG_ANSWER,
+                "Submitted code does not match the expected answer.",
+                0,
+                1
+        );
     }
 
     private List<ExecutionFlowStep> buildJavaRuntimeFlow(String sourceCode) {
@@ -400,6 +505,36 @@ public class GrammarTemplateExecutionService {
 
     private String normalizeInput(String input) {
         return input == null ? "" : input;
+    }
+
+    private String normalizeText(String text) {
+        return text == null ? "" : text.replaceAll("\\s+", "");
+    }
+
+    private String textValue(com.fasterxml.jackson.databind.JsonNode node, String fieldName, String defaultValue) {
+        if (node == null || node.isNull()) {
+            return defaultValue;
+        }
+        com.fasterxml.jackson.databind.JsonNode value = node.get(fieldName);
+        if (value == null || value.isNull()) {
+            return defaultValue;
+        }
+        return value.asText();
+    }
+
+    private int intValue(com.fasterxml.jackson.databind.JsonNode node, String fieldName, int defaultValue) {
+        if (node == null || node.isNull()) {
+            return defaultValue;
+        }
+        com.fasterxml.jackson.databind.JsonNode value = node.get(fieldName);
+        if (value == null || value.isNull()) {
+            return defaultValue;
+        }
+        return value.asInt(defaultValue);
+    }
+
+    private int cappedIntValue(com.fasterxml.jackson.databind.JsonNode node, String fieldName, int defaultValue, int maxValue) {
+        return Math.max(1, Math.min(intValue(node, fieldName, defaultValue), maxValue));
     }
 
     private record ParsedVariable(String name, String expression, String dataType) {
