@@ -1,7 +1,10 @@
 package com.cobip.domain.coding;
 
 import java.util.Locale;
+import java.util.Set;
+import java.util.Collections;
 
+import com.cobip.domain.user.User;
 import com.cobip.dto.coding.CodingWorkbookDetailResponse;
 import com.cobip.dto.coding.CodingWorkbookSummaryResponse;
 import com.cobip.global.common.PageResponse;
@@ -22,6 +25,7 @@ public class CodingWorkbookService {
 
     private final CodingWorkbookRepository codingWorkbookRepository;
     private final CodingProblemRepository codingProblemRepository;
+    private final CodingSubmissionRepository codingSubmissionRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<CodingWorkbookSummaryResponse> getWorkbooks(
@@ -37,7 +41,7 @@ public class CodingWorkbookService {
     }
 
     @Transactional(readOnly = true)
-    public CodingWorkbookDetailResponse getWorkbook(Long workbookId) {
+    public CodingWorkbookDetailResponse getWorkbook(User user, Long workbookId) {
         CodingWorkbook workbook = codingWorkbookRepository
                 .findByIdAndStatusAndDeletedAtIsNull(workbookId, CodingWorkbookStatus.PUBLISHED)
                 .orElseThrow(() -> new CustomException(ErrorCode.CODING_WORKBOOK_NOT_FOUND));
@@ -45,7 +49,16 @@ public class CodingWorkbookService {
                 workbook.getId(),
                 CodingProblemStatus.PUBLISHED
         );
-        return CodingWorkbookDetailResponse.of(workbook, problems);
+        Set<Long> solvedProblemIds = problems.isEmpty()
+                ? Collections.emptySet()
+                : codingSubmissionRepository.findSolvedProblemIdsByUserIdAndProblemIds(
+                        user.getId(),
+                        problems.stream()
+                                .map(CodingProblem::getId)
+                                .toList(),
+                        CodingSubmissionStatus.ACCEPTED
+                );
+        return CodingWorkbookDetailResponse.of(workbook, problems, solvedProblemIds);
     }
 
     private Specification<CodingWorkbook> publicWorkbookSpec(

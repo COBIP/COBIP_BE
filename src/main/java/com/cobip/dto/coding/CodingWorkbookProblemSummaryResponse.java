@@ -13,16 +13,18 @@ public class CodingWorkbookProblemSummaryResponse {
     private final String category;
     private final CodingDifficulty difficulty;
     private final int orderIndex;
+    private final boolean solved;
 
-    private CodingWorkbookProblemSummaryResponse(CodingProblem problem) {
+    private CodingWorkbookProblemSummaryResponse(CodingProblem problem, boolean solved) {
         this.id = problem.getId();
         this.title = problem.getTitle();
         this.category = problem.getCategory();
         this.difficulty = problem.getDifficulty();
         this.orderIndex = problem.getOrderIndex();
+        this.solved = solved;
     }
 
-    public static CodingWorkbookProblemSummaryResponse from(CodingProblem problem) {
-        return new CodingWorkbookProblemSummaryResponse(problem);
+    public static CodingWorkbookProblemSummaryResponse from(CodingProblem problem, boolean solved) {
+        return new CodingWorkbookProblemSummaryResponse(problem, solved);
     }
 }
