@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Optional;
+
 import com.cobip.dto.auth.EmailVerificationConfirmRequest;
 import com.cobip.dto.auth.EmailVerificationSendRequest;
 import com.cobip.global.exception.CustomException;
@@ -78,12 +80,23 @@ class EmailVerificationServiceTest {
     void sendCodeRejectsDuplicatedEmail() {
         EmailVerificationSendRequest request = new EmailVerificationSendRequest();
         ReflectionTestUtils.setField(request, "email", "user@example.com");
-        when(userRepository.existsByEmail("user@example.com")).thenReturn(true);
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user(UserStatus.ACTIVE)));
 
         assertThatThrownBy(() -> emailVerificationService.sendCode(request))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
+    }
+
+    @Test
+    void sendCodeAllowsDeletedEmail() {
+        EmailVerificationSendRequest request = new EmailVerificationSendRequest();
+        ReflectionTestUtils.setField(request, "email", "user@example.com");
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user(UserStatus.DELETED)));
+
+        emailVerificationService.sendCode(request);
+
+        verify(redisService).saveEmailVerificationCode(eq("user@example.com"), org.mockito.ArgumentMatchers.anyString(), eq(300_000L));
     }
 
     @Test
@@ -125,5 +138,17 @@ class EmailVerificationServiceTest {
             pending.run();
             pending = null;
         }
+    }
+
+    private User user(UserStatus status) {
+        return User.builder()
+                .id(1L)
+                .email("user@example.com")
+                .password("encoded-password")
+                .nickname("user")
+                .role(UserRole.USER)
+                .status(status)
+                .emailVerified(true)
+                .build();
     }
 }

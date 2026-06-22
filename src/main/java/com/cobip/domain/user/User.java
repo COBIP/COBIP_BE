@@ -64,6 +64,13 @@ public class User extends BaseTimeEntity {
         this.password = encodedPassword;
     }
 
+    public void reactivate(String encodedPassword, String nickname) {
+        this.password = encodedPassword;
+        this.nickname = nickname;
+        this.status = UserStatus.ACTIVE;
+        this.emailVerified = true;
+    }
+
     public void changeStatus(UserStatus status) {
         this.status = status;
     }
