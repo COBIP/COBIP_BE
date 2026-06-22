@@ -3,10 +3,12 @@ package com.cobip.domain.coding;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import com.cobip.global.common.PageResponse;
 import com.cobip.global.exception.CustomException;
@@ -31,11 +33,18 @@ class CodingWorkbookServiceTest {
     @Mock
     private CodingProblemRepository codingProblemRepository;
 
+    @Mock
+    private CodingSubmissionRepository codingSubmissionRepository;
+
     private CodingWorkbookService codingWorkbookService;
 
     @BeforeEach
     void setUp() {
-        codingWorkbookService = new CodingWorkbookService(codingWorkbookRepository, codingProblemRepository);
+        codingWorkbookService = new CodingWorkbookService(
+                codingWorkbookRepository,
+                codingProblemRepository,
+                codingSubmissionRepository
+        );
     }
 
     @Test
@@ -61,18 +70,25 @@ class CodingWorkbookServiceTest {
     void getWorkbookReturnsPublishedWorkbookWithProblems() {
         CodingWorkbook workbook = workbook(1L);
         CodingProblem problem = problem(10L, workbook);
+        var user = user(100L);
         when(codingWorkbookRepository.findByIdAndStatusAndDeletedAtIsNull(1L, CodingWorkbookStatus.PUBLISHED))
                 .thenReturn(Optional.of(workbook));
         when(codingProblemRepository.findByWorkbookIdAndStatusAndDeletedAtIsNullOrderByOrderIndexAsc(
                 1L,
                 CodingProblemStatus.PUBLISHED
         )).thenReturn(List.of(problem));
+        when(codingSubmissionRepository.findSolvedProblemIdsByUserIdAndProblemIds(
+                eq(100L),
+                eq(List.of(10L)),
+                eq(CodingSubmissionStatus.ACCEPTED)
+        )).thenReturn(Set.of(10L));
 
-        var response = codingWorkbookService.getWorkbook(1L);
+        var response = codingWorkbookService.getWorkbook(user, 1L);
 
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getProblems()).hasSize(1);
         assertThat(response.getProblems().get(0).getId()).isEqualTo(10L);
+        assertThat(response.getProblems().get(0).isSolved()).isTrue();
     }
 
     @Test
@@ -80,7 +96,7 @@ class CodingWorkbookServiceTest {
         when(codingWorkbookRepository.findByIdAndStatusAndDeletedAtIsNull(1L, CodingWorkbookStatus.PUBLISHED))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> codingWorkbookService.getWorkbook(1L))
+        assertThatThrownBy(() -> codingWorkbookService.getWorkbook(user(100L), 1L))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.CODING_WORKBOOK_NOT_FOUND);
@@ -115,6 +131,18 @@ class CodingWorkbookServiceTest {
                 .timeLimitMillis(2000)
                 .memoryLimitMb(256)
                 .status(CodingProblemStatus.PUBLISHED)
+                .build();
+    }
+
+    private com.cobip.domain.user.User user(Long id) {
+        return com.cobip.domain.user.User.builder()
+                .id(id)
+                .email("user@test.com")
+                .password("encoded")
+                .nickname("tester")
+                .role(com.cobip.domain.user.UserRole.USER)
+                .status(com.cobip.domain.user.UserStatus.ACTIVE)
+                .emailVerified(true)
                 .build();
     }
 }
