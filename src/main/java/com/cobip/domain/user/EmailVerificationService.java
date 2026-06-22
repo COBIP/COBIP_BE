@@ -37,7 +37,9 @@ public class EmailVerificationService {
 
     public void sendCode(EmailVerificationSendRequest request) {
         String email = normalizeEmail(request.getEmail());
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.findByEmail(email)
+                .filter(user -> user.getStatus() != UserStatus.DELETED)
+                .isPresent()) {
             throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
         }
 

@@ -28,9 +28,19 @@ public class UserService {
 
     @Transactional
     public AuthResponse signup(SignupRequest request) {
-        validateSignupRequest(request);
+        User deletedUser = validateSignupRequest(request);
 
         try {
+            if (deletedUser != null) {
+                deletedUser.reactivate(
+                        passwordEncoder.encode(request.getPassword()),
+                        request.getNickname()
+                );
+                AuthResponse response = issueTokens(deletedUser);
+                emailVerificationService.consumeVerifiedEmail(request.getEmail());
+                return response;
+            }
+
             User user = userRepository.save(User.builder()
                     .email(request.getEmail())
                     .password(passwordEncoder.encode(request.getPassword()))
@@ -96,7 +106,9 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public boolean isEmailAvailable(String email) {
-        return !userRepository.existsByEmail(email);
+        return userRepository.findByEmail(email)
+                .map(user -> user.getStatus() == UserStatus.DELETED)
+                .orElse(true);
     }
 
     @Transactional(readOnly = true)
@@ -104,19 +116,25 @@ public class UserService {
         return !userRepository.existsByNickname(nickname);
     }
 
-    private void validateSignupRequest(SignupRequest request) {
+    private User validateSignupRequest(SignupRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
+        User deletedUser = userRepository.findByEmail(request.getEmail())
+                .filter(user -> user.getStatus() == UserStatus.DELETED)
+                .orElse(null);
+        if (deletedUser == null && userRepository.existsByEmail(request.getEmail())) {
             throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
         }
-        if (userRepository.existsByNickname(request.getNickname())) {
+        if (deletedUser != null
+                ? userRepository.existsByNicknameAndIdNot(request.getNickname(), deletedUser.getId())
+                : userRepository.existsByNickname(request.getNickname())) {
             throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
         }
         if (!emailVerificationService.isVerified(request.getEmail())) {
             throw new CustomException(ErrorCode.EMAIL_VERIFICATION_REQUIRED);
         }
+        return deletedUser;
     }
 
     private AuthResponse issueTokens(User user) {
